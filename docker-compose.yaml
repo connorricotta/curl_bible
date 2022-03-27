@@ -16,9 +16,9 @@ services:
   mariadb:
     image: mariadb:10.5
     ports:
-      - 3306:3306
+      - 33060:3306
     volumes:
-      - .sql/sql:/docker-entrypoint-initdb.d
+      - ./sql/sql:/docker-entrypoint-initdb.d
     environment:
       # For other ways to configure the root password (or disable passwords
       # completely), please consult the official MariaDB container
