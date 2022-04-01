@@ -1,4 +1,7 @@
-from cProfile import run
+# Bible Webapp
+# Query the Holy Bible using curl
+# Author: CR
+
 from flask import Flask, request
 import mysql.connector
 from mysql.connector import Error
@@ -35,8 +38,12 @@ def bible():
             version = "t_asv"
 
         # Correlate book name to book id        
-        book_id = str(book_to_id(book, db_conn)[1])
-        
+        book_id = book_to_id(book, db_conn)
+        if book_id[0]==Status.Failure.value:
+            return (f"Invalid book selection: {book}\n", 400)
+        else:
+            book_id = str(book_id[1])
+
         # Check for multiple quotes
         if '-' in verse:
             [start,stop] = verse.split("-")
@@ -105,22 +112,6 @@ def connect_to_db() -> CMySQLConnection:
         return None
 
 
-def book_to_id(book:str, database_connection: CMySQLConnection) -> str:
-    db_cmd = "SELECT b from key_abbreviations_english where a=%s"
-    db_parameters = (book,)
-    return run_db_command(db_conn=database_connection, cmd=db_cmd, parameters=db_parameters, single_or_multiple=Query.Single.value)
-
-
-def query_single_quote(book:str, chapter:str, verse:str, database_connection, text_only:bool, book_version:str) -> tuple:
-    verse_id = "0"*(2-len(book))+book + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
-    db_cmd = set_book_version(book_version, Query.Single.value)
-    if db_cmd is None:
-        return (1,f"Invalid book version {book_version}")
-    
-    return run_db_command(db_conn=database_connection, cmd=db_cmd, parameters=(verse_id,), single_or_multiple=Query.Single.value)
-
-
-
 def set_book_version(book_version:str, single_or_multiple:bool) -> str:
 # Cannot passed in book_version, must be done manually to prevent SQL injection
     if single_or_multiple == Query.Single.value:
@@ -151,6 +142,17 @@ def set_book_version(book_version:str, single_or_multiple:bool) -> str:
             return None
     
 
+def book_to_id(book:str, database_connection: CMySQLConnection) -> str:
+    db_cmd = "SELECT b from key_abbreviations_english where a=%s"
+    db_parameters = (book,)
+    return run_db_command(
+        db_conn=database_connection,
+        cmd=db_cmd,
+        parameters=db_parameters,
+        single_or_multiple=Query.Single.value
+    )
+
+
 def run_db_command(db_conn:CMySQLConnection, cmd:str, parameters:tuple, single_or_multiple:int) -> tuple:
      with db_conn.cursor() as cursor:
         try:
@@ -164,10 +166,24 @@ def run_db_command(db_conn:CMySQLConnection, cmd:str, parameters:tuple, single_o
                 if result != None:
                     return (Status.Success.value, result[0])
                 else:
-                    return (Status.Success.value, "")
+                    return (Status.Failure.value, "No data was returned")
         except mysql.connector.Error as e:
             #TODO log error 'e'
             return (Status.Failure.value, "Database Error")
+
+
+def query_single_quote(book:str, chapter:str, verse:str, database_connection, text_only:bool, book_version:str) -> tuple:
+    verse_id = "0"*(2-len(book))+book + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
+    db_cmd = set_book_version(book_version, Query.Single.value)
+    if db_cmd is None:
+        return (1,f"Invalid book version {book_version}")
+    
+    return run_db_command(
+        db_conn=database_connection, 
+        cmd=db_cmd,
+        parameters=(verse_id,),
+        single_or_multiple=Query.Single.value
+    )
 
 
 def query_multiple_quotes(starting_book:str, starting_chapter:str, starting_verse:str, 
