@@ -154,7 +154,7 @@ def book_to_id(book:str, database_connection: CMySQLConnection) -> str:
 
 
 def run_db_command(db_conn:CMySQLConnection, cmd:str, parameters:tuple, single_or_multiple:int) -> tuple:
-     with db_conn.cursor() as cursor:
+     with db_conn.cursor(buffered=True) as cursor:
         try:
             cursor.execute(cmd, parameters)
             if cursor.with_rows==True:
