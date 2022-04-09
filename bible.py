@@ -2,6 +2,13 @@
 # Query the Holy Bible using curl
 # Author: CR
 
+# Supports the following versions:
+#   - King James Version (KJV)
+#   - American Standard-ASV1901 (ASV)
+#   - Bible in Basic English (BBE)
+#   - World English Bible (WEB)
+#   - Young's Literal Translation (YLT)
+
 from flask import Flask, request
 import mysql.connector
 from mysql.connector import Error
@@ -18,6 +25,22 @@ class Status(enum.Enum):
     Success = 0
     Failure = 1
 
+class ReturnObject():
+    def __init__(self, status:int, content:list) -> None:
+        self.status = status
+        self.content = content
+    
+    def get_content(self):
+        return self.content
+
+    def get_error(self):
+        return self.error
+
+    def is_error(self):
+    # Define an error status as having a value of 1
+    # Otherwise, return success
+        return self.status % 2 == 1
+
 
 @app.route("/",methods=["POST","GET"])
 def bible():
@@ -33,16 +56,17 @@ def bible():
 
         # Set a default version if none is specified
         if "version" in request.args:
-            version = request.args['version']
+            bible_version = request.args['version']
         else:
-            version = "t_asv"
+            bible_version = "t_asv"
 
         # Correlate book name to book id        
         book_id = book_to_id(book, db_conn)
-        if book_id[0]==Status.Failure.value:
-            return (f"Invalid book selection: {book}\n", 400)
-        else:
-            book_id = str(book_id[1])
+        try:
+            book_id=str(book_id[0][0])
+        except TypeError as e:
+            return ("Book not found", 400)
+
 
         # Check for multiple quotes
         if '-' in verse:
@@ -67,19 +91,16 @@ def bible():
             else:
                 return (result[1]+"\n", 400)
 
-        if book_id is not None and isinstance(book_id, int):
-            result = query_single_quote(
-                str(book_id), 
-                chapter,
-                verse,
-                db_conn,
-                text_only=True,
-                book_version=version
-            )
-            if result[0] == Status.Success.value:
-                return result[1]+"\n"
-            else:
-                return (result[1]+"\n", 400)
+        if book_id is not None and str.isnumeric(book_id):
+            verse_id = "0"*(2-len(book_id))+book_id + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
+            # TODO regex check to make sure verse_id is good
+            result = query_single_verse(verse_id, db_conn, bible_version)
+            if result.is_error():
+                return (result.get_error(), 400)
+            try:
+                return (result.get_content()[0][0]+"\n", 200)
+            except TypeError as e:
+                return ("Invalid return from DB, please report to site admin", 400)
     
     return ("Error", 400)
    
@@ -112,46 +133,70 @@ def connect_to_db() -> CMySQLConnection:
         return None
 
 
-def set_book_version(book_version:str, single_or_multiple:bool) -> str:
+def set_single_verse_bible_version(book_version:str) -> str:
 # Cannot passed in book_version, must be done manually to prevent SQL injection
-    if single_or_multiple == Query.Single.value:
-        if book_version == "t_asv":
-            return "SELECT t from t_asv where id=%s"
-        elif book_version == "t_bbe":
-            return "SELECT t from t_bbe where id=%s"
-        elif book_version == "t_kjv":
-            return "SELECT t from t_kjv where id=%s"
-        elif book_version == "t_web":
-            return "SELECT t from t_web where id=%s"
-        elif book_version == "t_ylt":
-            return "SELECT t from t_ylt where id=%s"
-        else:
-            return None
+    if book_version == "t_asv":
+        return "SELECT t from t_asv where id=%s"
+    elif book_version == "t_bbe":
+        return "SELECT t from t_bbe where id=%s"
+    elif book_version == "t_kjv":
+        return "SELECT t from t_kjv where id=%s"
+    elif book_version == "t_web":
+        return "SELECT t from t_web where id=%s"
+    elif book_version == "t_ylt":
+        return "SELECT t from t_ylt where id=%s"
     else:
-        if book_version == "t_asv":
-            return "SELECT t from t_asv where id between %s and %s"
-        elif book_version == "t_bbe":
-            return "SELECT t from t_bbe where id between %s and %s"
-        elif book_version == "t_kjv":
-            return "SELECT t from t_kjv where id between %s and %s"
-        elif book_version == "t_web":
-            return "SELECT t from t_web where id between %s and %s"
-        elif book_version == "t_ylt":
-            return "SELECT t from t_ylt where id between %s and %s"
-        else:
-            return None
+        return None
+
+
+def set_multiple_verse_bible_version(book_version:str) -> str:
+    if book_version == "t_asv":
+        return "SELECT t from t_asv where id between %s and %s"
+    elif book_version == "t_bbe":
+        return "SELECT t from t_bbe where id between %s and %s"
+    elif book_version == "t_kjv":
+        return "SELECT t from t_kjv where id between %s and %s"
+    elif book_version == "t_web":
+        return "SELECT t from t_web where id between %s and %s"
+    elif book_version == "t_ylt":
+        return "SELECT t from t_ylt where id between %s and %s"
+    else:
+        return None
     
 
 def book_to_id(book:str, database_connection: CMySQLConnection) -> str:
     db_cmd = "SELECT b from key_abbreviations_english where a=%s"
     db_parameters = (book,)
-    return run_db_command(
-        db_conn=database_connection,
-        cmd=db_cmd,
-        parameters=db_parameters,
-        single_or_multiple=Query.Single.value
+    result = query_db(
+        db_conn=database_connection, 
+        db_cmd=db_cmd,
+        parameters=db_parameters
     )
+    if result.is_error():
+        return (result.get_error(),)
+    return result.get_content()
+   
 
+
+def query_single_verse(verse_id:str, db_conn:CMySQLConnection, book_version:str) -> str:
+    db_cmd = set_single_verse_bible_version(book_version)
+    parameters = (verse_id,)
+    if db_cmd is None:
+        # TODO log invalid bible version
+        return ReturnObject(Status.Failure.value,"Invalid Bible Version")
+    result = query_db(db_conn, db_cmd, parameters)
+    return result
+
+
+def query_db(db_conn:CMySQLConnection, db_cmd:str, parameters:tuple):
+    with db_conn.cursor(buffered=True) as cursor:
+        try:
+            cursor.execute(db_cmd, parameters)
+            if cursor.with_rows==True:
+                return ReturnObject(Status.Success.value,cursor.fetchall())
+        except mysql.connector.Error as e:
+            #TODO log error 'e'
+            return ReturnObject(Status.Failure.value,"Verse not found")
 
 def run_db_command(db_conn:CMySQLConnection, cmd:str, parameters:tuple, single_or_multiple:int) -> tuple:
      with db_conn.cursor(buffered=True) as cursor:
@@ -174,7 +219,7 @@ def run_db_command(db_conn:CMySQLConnection, cmd:str, parameters:tuple, single_o
 
 def query_single_quote(book:str, chapter:str, verse:str, database_connection, text_only:bool, book_version:str) -> tuple:
     verse_id = "0"*(2-len(book))+book + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
-    db_cmd = set_book_version(book_version, Query.Single.value)
+    db_cmd = set_bible_version(book_version, Query.Single.value)
     if db_cmd is None:
         return (1,f"Invalid book version {book_version}")
     
@@ -198,7 +243,7 @@ def query_multiple_quotes(starting_book:str, starting_chapter:str, starting_vers
                         "0"*(3-len(ending_chapter))+ending_chapter + \
                         "0"*(3-len(ending_verse))+ending_verse
 
-    db_cmd = set_book_version(book_version, 1)
+    db_cmd = set_bible_version(book_version, 1)
     db_parameters = (starting_verse_id, ending_verse_id)
     return run_db_command(
         db_conn=database_connection,
