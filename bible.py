@@ -66,10 +66,8 @@ def bible():
         book_id = book_to_id(book, db_conn)
         try:
             assert book_id is not None and str.isnumeric(book_id)
-        except TypeError as te:
-            return ("Book not found", 400)
         except AssertionError as ae:
-            return ("Invalid return from DB, please contact site admin", 500)
+            return (f"Book '{book}' not found\n" , 500)
 
 
         # Check for multiple quotes
@@ -190,10 +188,8 @@ def query_single_verse(book:str, chapter:str, verse:str) -> ReturnObject:
     book_id = book_to_id(book, db_conn)
     try:
         assert book_id is not None and str.isnumeric(book_id)
-    except TypeError as te:
-        return ReturnObject(Status.Failure, "Book not found")
     except AssertionError as ae:
-        return ReturnObject(Status.Failure, "Invalid return from DB, please contact site admin")
+        return ReturnObject(Status.Failure, f"Book '{book}' not found\n" )
 
     verse_id = "0"*(2-len(book_id))+book_id + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
 
