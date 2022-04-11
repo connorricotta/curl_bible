@@ -22,11 +22,13 @@ app = Flask(__name__)
 class Query(enum.Enum):
     Single=0
     Multiple=1
-    
+
+
 class Status(enum.Enum):
     Success = 0
     Failure = 401
     MajorFailure = 501
+
 
 class ReturnObject():
     def __init__(self, status:int, content:str) -> None:
@@ -53,16 +55,17 @@ def argument_query():
         chapter = request.args['chapter']
         verse = request.args['verse']
 
+        if not are_args_valid(book, chapter, verse):
+            return ("Invalid arguments", 400)
+        
         # Check for multiple quotes. This function only does quotes from the same chapter. 
         if '-' in verse:
             return parse_db_response(query_multiple_verses_one_book(book, chapter, verse, request.args))
 
         return parse_db_response(query_single_verse(book, chapter, verse, request.args))
 
-
     return ("Unknown error", 400)
    
-
 
 @app.route('/<full_verse>')
 def basic_path(full_verse):
@@ -72,6 +75,8 @@ def basic_path(full_verse):
             book = book_and_parts[0]
             [chapter, verse] = book_and_parts[1].split(":")
             if '-' in verse:
+                if not are_args_valid(book, chapter, verse):
+                    return ("Invalid arguments", 400)
                 return parse_db_response(
                     query_multiple_verses_one_book(book, chapter, verse, request.args)
                 )
@@ -80,9 +85,13 @@ def basic_path(full_verse):
             if len(parts) == 3:
                 [book, chapter, verse] = parts[0], parts[1], parts[2]
                 if '-' in verse:
+                    if not are_args_valid(book, chapter, verse):
+                        return ("Invalid arguments", 400)
                     return parse_db_response(
                         query_multiple_verses_one_book(book, chapter, verse, request.args)
                     )
+        if not are_args_valid(book, chapter, verse):
+            return ("Invalid arguments", 400)
         return parse_db_response(query_single_verse(
             book, chapter, verse, request.args
         ))
@@ -90,8 +99,11 @@ def basic_path(full_verse):
     except Exception as e:
         return ("Invalid verse", 400)
 
+
 @app.route('/<book>/<chapter>/<verse>')
 def path_query(book, chapter, verse):
+    if not are_args_valid(book, chapter, verse):
+        return ("Invalid arguments", 400)
     return parse_db_response(query_single_verse(book, chapter, verse, request.args))
 
 
@@ -147,7 +159,9 @@ def set_multiple_verse_bible_version(book_version:str) -> str:
     
 
 def bookname_to_bookid(book:str, database_connection: CMySQLConnection) -> str:
-    db_cmd = "SELECT b from key_abbreviations_english where a=%s"
+    # For some reason, several books return several identical results.
+    # Ensuring that p=1, eliminates this problem. 
+    db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
     db_parameters = (book,)
     result = query_db(
         db_conn=database_connection, 
@@ -156,7 +170,9 @@ def bookname_to_bookid(book:str, database_connection: CMySQLConnection) -> str:
     )
     if result.is_error():
         return (result.get_error(),)
-    return result.get_content()
+    # Querying for books like 'Psalms' and 'John' returns multiple instances of the same result
+    # So the first number must be pulled from the text.
+    return result.get_content().split(" ")[0]
    
 
 def query_single_verse(book:str, chapter:str, verse:str, args:ImmutableMultiDict) -> ReturnObject:
@@ -263,12 +279,19 @@ def parse_db_response(result:ReturnObject) -> tuple:
     The color formatting will also be done here. 
     '''
     if result.get_error()==Status.Failure.value:
-        return (result.get_error(), 400)
+        return (result.get_content(), 400)
     elif result.get_error() == Status.MajorFailure.value:
-        return (result.get_error(), 500)
+        return (result.get_content(), 500)
     if result.get_content() == '':
         return (f"Invalid Chapter \n", 400)
     return (result.get_content()+"\n", 200)
+
+
+def are_args_valid(book:str, chapter:str, verse:str) -> bool:
+    if '-' in verse:
+        [starting_verse, ending_verse] = verse.split("-")
+        return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(starting_verse) and str.isnumeric(ending_verse)   
+    return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(verse)
 
 
 if __name__ == "__main__":
