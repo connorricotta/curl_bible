@@ -11,7 +11,7 @@
 
 
 from flask import Flask, request
-import mysql.connector 
+import mysql.connector
 from mysql.connector import Error
 import enum
 from mysql.connector.connection_cext import CMySQLConnection
@@ -19,9 +19,10 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 app = Flask(__name__)
 
+
 class Query(enum.Enum):
-    Single=0
-    Multiple=1
+    Single = 0
+    Multiple = 1
 
 
 class Status(enum.Enum):
@@ -31,10 +32,10 @@ class Status(enum.Enum):
 
 
 class ReturnObject():
-    def __init__(self, status:int, content:str) -> None:
+    def __init__(self, status: int, content: str) -> None:
         self.status = status
         self.content = content
-    
+
     def get_content(self):
         return self.content
 
@@ -42,12 +43,12 @@ class ReturnObject():
         return self.status
 
     def is_error(self):
-    # Define an error status as having a value of 1
-    # Otherwise, return success
+        # Define an error status as having a value of 1
+        # Otherwise, return success
         return self.status % 2 == 1
 
 
-@app.route("/",methods=["POST","GET"])
+@app.route("/", methods=["POST", "GET"])
 def argument_query():
     # Check for arguments version
     if "book" in request.args and "chapter" in request.args and "verse" in request.args:
@@ -57,15 +58,23 @@ def argument_query():
 
         if not are_args_valid(book, chapter, verse):
             return ("Invalid arguments", 400)
-        
-        # Check for multiple quotes. This function only does quotes from the same chapter. 
-        if '-' in verse:
-            return parse_db_response(query_multiple_verses_one_book(book, chapter, verse, request.args))
 
-        return parse_db_response(query_single_verse(book, chapter, verse, request.args))
+        # Check for multiple quotes. This function only does quotes from the
+        # same chapter.
+        if '-' in verse:
+            return parse_db_response(
+                query_multiple_verses_one_book(
+                    book, chapter, verse, request.args))
+
+        return parse_db_response(
+            query_single_verse(
+                book,
+                chapter,
+                verse,
+                request.args))
 
     return ("Unknown error", 400)
-   
+
 
 @app.route('/<full_verse>')
 def basic_path(full_verse):
@@ -81,11 +90,11 @@ def basic_path(full_verse):
                 if not are_args_valid(book, chapter, verse):
                     return ("Invalid arguments", 400)
                 return parse_db_response(
-                    query_multiple_verses_one_book(book, chapter, verse, request.args)
-                )
+                    query_multiple_verses_one_book(
+                        book, chapter, verse, request.args))
 
         # Check for <book>:<chapter>:<verse>
-        else:   
+        else:
             parts = full_verse.split(":")
             if len(parts) == 3:
                 [book, chapter, verse] = parts[0], parts[1], parts[2]
@@ -95,20 +104,22 @@ def basic_path(full_verse):
                     if not are_args_valid(book, chapter, verse):
                         return ("Invalid arguments", 400)
                     return parse_db_response(
-                        query_multiple_verses_one_book(book, chapter, verse, request.args)
-                    )
+                        query_multiple_verses_one_book(
+                            book, chapter, verse, request.args))
 
             # Check for an entire chapter
             elif len(parts) == 2:
                 [book, chapter] = parts[0], parts[1]
-                return parse_db_response(query_entire_chapter(book, chapter, request.args))
-                
+                return parse_db_response(
+                    query_entire_chapter(
+                        book, chapter, request.args))
+
         if not are_args_valid(book, chapter, verse):
             return ("Invalid arguments", 400)
         return parse_db_response(query_single_verse(
             book, chapter, verse, request.args
         ))
-        
+
     except Exception as e:
         return ("Invalid verse", 400)
 
@@ -123,14 +134,18 @@ def path_query(book, chapter, verse):
         return parse_db_response(
             query_multiple_verses_one_book(book, chapter, verse, request.args)
         )
-    return parse_db_response(query_single_verse(book, chapter, verse, request.args))
-    
+    return parse_db_response(
+        query_single_verse(
+            book,
+            chapter,
+            verse,
+            request.args))
 
 
 def connect_to_db() -> CMySQLConnection:
     """ Connect to MySQL database """
     conn = None
-    
+
     try:
         conn = mysql.connector.connect(
             host='localhost',
@@ -147,8 +162,9 @@ def connect_to_db() -> CMySQLConnection:
         return None
 
 
-def set_single_verse_bible_version(book_version:str) -> str:
-# Cannot passed in book_version, must be done manually to prevent SQL injection
+def set_single_verse_bible_version(book_version: str) -> str:
+    # Cannot passed in book_version, must be done manually to prevent SQL
+    # injection
     if book_version == "t_asv":
         return "SELECT t from t_asv where id=%s"
     elif book_version == "t_bbe":
@@ -163,7 +179,7 @@ def set_single_verse_bible_version(book_version:str) -> str:
         return None
 
 
-def set_multiple_verse_bible_version(book_version:str) -> str:
+def set_multiple_verse_bible_version(book_version: str) -> str:
     if book_version == "t_asv":
         return "SELECT t from t_asv where id between %s and %s"
     elif book_version == "t_bbe":
@@ -176,9 +192,9 @@ def set_multiple_verse_bible_version(book_version:str) -> str:
         return "SELECT t from t_ylt where id between %s and %s"
     else:
         return None
-    
 
-def set_entire_chapter_bible_version(book_version:str) -> str:
+
+def set_entire_chapter_bible_version(book_version: str) -> str:
     if book_version == "t_asv":
         return "SELECT t from t_asv where id like %s"
     elif book_version == "t_bbe":
@@ -193,13 +209,15 @@ def set_entire_chapter_bible_version(book_version:str) -> str:
         return None
 
 
-def bookname_to_bookid(book:str, database_connection: CMySQLConnection) -> str:
+def bookname_to_bookid(
+        book: str,
+        database_connection: CMySQLConnection) -> str:
     # For some reason, several books return several identical results.
-    # Ensuring that p=1, eliminates this problem. 
+    # Ensuring that p=1, eliminates this problem.
     db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
     db_parameters = (book,)
     result = query_db(
-        db_conn=database_connection, 
+        db_conn=database_connection,
         db_cmd=db_cmd,
         parameters=db_parameters
     )
@@ -208,9 +226,13 @@ def bookname_to_bookid(book:str, database_connection: CMySQLConnection) -> str:
     # Querying for books like 'Psalms' and 'John' returns multiple instances of the same result
     # So the first number must be pulled from the text.
     return result.get_content().split(" ")[0]
-   
 
-def query_single_verse(book:str, chapter:str, verse:str, args:ImmutableMultiDict) -> ReturnObject:
+
+def query_single_verse(
+        book: str,
+        chapter: str,
+        verse: str,
+        args: ImmutableMultiDict) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
         return ReturnObject(Status.Failure.value, "Cannot connect to local DB")
@@ -221,20 +243,21 @@ def query_single_verse(book:str, chapter:str, verse:str, args:ImmutableMultiDict
     else:
         bible_version = "t_asv"
 
-    # Correlate book name to book id        
+    # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
-        return ReturnObject(Status.Failure, f"Book '{book}' not found\n" )
+        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
 
-    verse_id = "0"*(2-len(book_id))+book_id + "0"*(3-len(chapter))+chapter + "0"*(3-len(verse))+verse
+    verse_id = "0" * (2 - len(book_id)) + book_id + "0" * \
+        (3 - len(chapter)) + chapter + "0" * (3 - len(verse)) + verse
 
     db_cmd = set_single_verse_bible_version(bible_version)
     parameters = (verse_id,)
     if db_cmd is None:
         # TODO log invalid bible version
-        return ReturnObject(Status.Failure.value,"Invalid Bible Version")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
     result = query_db(db_conn, db_cmd, parameters)
 
     if result.is_error():
@@ -242,21 +265,29 @@ def query_single_verse(book:str, chapter:str, verse:str, args:ImmutableMultiDict
     try:
         return ReturnObject(Status.Success.value, result.get_content())
     except TypeError as te:
-        return ReturnObject(Status.MajorFailure, "Invalid return from DB, please contact site admin")
-    
+        return ReturnObject(
+            Status.MajorFailure,
+            "Invalid return from DB, please contact site admin")
 
-def query_multiple_verses_one_book(book:str, chapter:str, verse:str, args:ImmutableMultiDict) -> ReturnObject: 
+
+def query_multiple_verses_one_book(
+        book: str,
+        chapter: str,
+        verse: str,
+        args: ImmutableMultiDict) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB, please contact site admin.")
-    
+        return ReturnObject(
+            Status.MajorFailure,
+            "Cannot connect to local DB, please contact site admin.")
+
     # Set a default version if none is specified
     if "version" in request.args:
         bible_version = request.args['version']
     else:
         bible_version = "t_asv"
 
-    # Correlate book name to book id        
+    # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     try:
         assert book_id is not None and str.isnumeric(book_id)
@@ -269,16 +300,17 @@ def query_multiple_verses_one_book(book:str, chapter:str, verse:str, args:Immuta
     if not str.isnumeric(starting_verse) or not str.isnumeric(ending_verse):
         return ReturnObject(Status.Failure, f"Invalid Verse {verse}\n")
     if int(ending_verse) < int(starting_verse):
-        return ReturnObject(Status.Failure, f"Starting Verse ({ending_verse}) must be greater than Ending Verse ({starting_verse})\n")
+        return ReturnObject(
+            Status.Failure,
+            f"Starting Verse ({ending_verse}) must be greater than Ending Verse ({starting_verse})\n")
 
+    starting_verse_id = "0" * (2 - len(book_id)) + book_id + \
+        "0" * (3 - len(chapter)) + chapter + \
+        "0" * (3 - len(starting_verse)) + starting_verse
 
-    starting_verse_id = "0"*(2-len(book_id))+book_id + \
-                    "0"*(3-len(chapter))+chapter + \
-                    "0"*(3-len(starting_verse))+starting_verse
-
-    ending_verse_id = "0"*(2-len(book_id))+book_id + \
-                    "0"*(3-len(chapter))+chapter + \
-                    "0"*(3-len(ending_verse))+ending_verse
+    ending_verse_id = "0" * (2 - len(book_id)) + book_id + \
+        "0" * (3 - len(chapter)) + chapter + \
+        "0" * (3 - len(ending_verse)) + ending_verse
 
     db_cmd = set_multiple_verse_bible_version(bible_version)
     if db_cmd is None:
@@ -291,31 +323,31 @@ def query_multiple_verses_one_book(book:str, chapter:str, verse:str, args:Immuta
         return ReturnObject(Status.Failure, result.get_error())
     if result.get_content() == '':
         return ReturnObject(Status.Failure, f"Verse not found!\n")
-    return result 
+    return result
 
 
-def query_entire_chapter(book:str, chapter:str, args: ImmutableMultiDict):
+def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict):
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB, please contact site admin.")
-    
+        return ReturnObject(
+            Status.MajorFailure,
+            "Cannot connect to local DB, please contact site admin.")
+
     # Set a default version if none is specified
     if "version" in args:
         bible_version = args['version']
     else:
         bible_version = "t_asv"
 
-    # Correlate book name to book id        
+    # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
-
-    entire_verse = "0"*(2-len(book_id))+book_id + \
-                    "0"*(3-len(chapter))+chapter + "%%"
-
+    entire_verse = "0" * (2 - len(book_id)) + book_id + \
+        "0" * (3 - len(chapter)) + chapter + "%%"
 
     db_cmd = set_entire_chapter_bible_version(bible_version)
     if db_cmd is None:
@@ -328,43 +360,45 @@ def query_entire_chapter(book:str, chapter:str, args: ImmutableMultiDict):
         return ReturnObject(Status.Failure, result.get_error())
     if result.get_content() == '':
         return ReturnObject(Status.Failure, f"Verse not found!\n")
-    return result 
+    return result
 
 
-
-def query_db(db_conn:CMySQLConnection, db_cmd:str, parameters:tuple):
+def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
     with db_conn.cursor(buffered=True) as cursor:
         try:
             cursor.execute(db_cmd, parameters)
-            if cursor.with_rows==True:
+            if cursor.with_rows:
                 text = cursor.fetchall()
-                return ReturnObject(Status.Success.value, ' '.join([str(verse[0]) for verse in text]))
+                return ReturnObject(Status.Success.value,
+                                    ' '.join([str(verse[0]) for verse in text]))
         except mysql.connector.Error as e:
-            #TODO log error 'e'
-            return ReturnObject(Status.Failure.value,"Verse not found")
+            # TODO log error 'e'
+            return ReturnObject(Status.Failure.value, "Verse not found")
 
 
-def parse_db_response(result:ReturnObject) -> tuple:
+def parse_db_response(result: ReturnObject) -> tuple:
     '''
-    After querying the DB and getting a ResponseObject, this method parses it into a 
-    proper response for Flask. 
-    This returns a tuple that can be returned to the client. 
-    The color formatting will also be done here. 
+    After querying the DB and getting a ResponseObject, this method parses it into a
+    proper response for Flask.
+    This returns a tuple that can be returned to the client.
+    The color formatting will also be done here.
     '''
-    if result.get_error()==Status.Failure.value:
+    if result.get_error() == Status.Failure.value:
         return (result.get_content(), 400)
     elif result.get_error() == Status.MajorFailure.value:
         return (result.get_content(), 500)
     if result.get_content() == '':
         return (f"Verse not found!\n", 400)
-    return (result.get_content()+"\n", 200)
+    return (result.get_content() + "\n", 200)
 
 
-def are_args_valid(book:str, chapter:str, verse:str) -> bool:
+def are_args_valid(book: str, chapter: str, verse: str) -> bool:
     if '-' in verse:
         [starting_verse, ending_verse] = verse.split("-")
-        return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(starting_verse) and str.isnumeric(ending_verse)   
-    return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(verse)
+        return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(
+            starting_verse) and str.isnumeric(ending_verse)
+    return str.isascii(book) and str.isnumeric(
+        chapter) and str.isnumeric(verse)
 
 
 if __name__ == "__main__":
