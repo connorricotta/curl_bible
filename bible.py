@@ -7,15 +7,15 @@
 #   - American Standard-ASV1901 (ASV)
 #   - Bible in Basic English (BBE)
 #   - World English Bible (WEB)
-#   - Young's Literal Translation (YLT)
+#   - Young's Literal Translatiobible.sh/book=John&verse=3&verse=15,17,19:20n (YLT)
 
 
+from turtle import width
 from flask import Flask, request
 import mysql.connector
 from mysql.connector import Error
 import enum
 from mysql.connector.connection_cext import CMySQLConnection
-from werkzeug.datastructures import ImmutableMultiDict
 
 app = Flask(__name__)
 
@@ -142,6 +142,98 @@ def path_query(book, chapter, verse):
             request.args))
 
 
+@app.route('/verses')
+def show_bible_versions():
+    '''
+    Just return a list of the bibles supported by this webapp.
+    Taken from the 'bible_version_key' table in the DB.
+    '''
+    return ('''
+    All current supported versions of the Bible.
+    Use the value in 'Version Name' to use that version of the bible, such as: 
+        curl -L "bible.sh/John:3:15?version=BBE"
+
+    ╭──────────────┬──────────┬─────────────────────────────┬────────────────────────────────────────────────────────────┬───────────────╮
+    │ Version Name │ Language │ Name of version             │ Wikipedia Link                                             │ Copyright     │
+    ├──────────────┼──────────┼─────────────────────────────┼────────────────────────────────────────────────────────────┼───────────────┤
+    │     ASV      │ english  │ American Standard-ASV1901   │ http://en.wikipedia.org/wiki/American_Standard_Version     │ Public Domain │
+    │     BBE      │ english  │ Bible in Basic English      │ http://en.wikipedia.org/wiki/Bible_in_Basic_English        │ Public Domain │
+    │     KJV      │ english  │ King James Version          │ http://en.wikipedia.org/wiki/King_James_Version            │ Public Domain │
+    │     WEB      │ english  │ World English Bible         │ http://en.wikipedia.org/wiki/World_English_Bible           │ Public Domain │
+    │     YLT      │ english  │ Young's Literal Translation │ http://en.wikipedia.org/wiki/Young%27s_Literal_Translation │ Public Domain │
+    ╰──────────────┴──────────┴─────────────────────────────┴────────────────────────────────────────────────────────────┴───────────────╯
+    ''', 200)
+
+
+@app.route('/book_render')
+def render_book():
+    print('test')
+    if 'length' in request.args and str.isnumeric(request.args['length']) and \
+        'width' in request.args and str.isnumeric(request.args['width']) :
+        width = int(request.args['width'])
+        length = int(request.args['length'])
+    else:
+        width = 20
+        length = 20
+    book = '''
+start                middle                 end    
+  |                    |                     |
+  V                    V                     V
+    ___________________ ___________________    
+.-/|                   V                   |\-. <─ top
+||||                   │                   |||| 
+||||                   │       ~~*~~       ||||
+||||    --==*==--      │                   ||||
+||||                   │                   ||||
+||||                   │                   ||||
+||||                   │     --==*==--     |||| <─ middle
+||||                   │                   ||||
+||||                   │                   ||||
+||||                   │                   ||||
+||||                   │                   ||||
+||||__________________ │ __________________|||| <─ bottom_single_pg
+||/===================\│/===================\|| <─ bottom_multi_pg
+`--------------------~___~-------------------'' <─ bottom_final_pg
+'''
+    book_parts = {
+        "top_level":                    "_",
+        "top_start":                    ".-/|",
+        "top_middle":                   " V ",
+        "top_end":                      "|\-.\n",
+        "middle_start":                 "||||",
+        "middle":                       " | ",
+        "bottom_single_pg_start":       "||||",
+        "bottom_single_pg_middle":      " | ",
+
+        "bottom_multi_pg_left":         "||/=",
+        "bottom_multi_pg_middle":       "\│/",
+        "bottom_multi_pg_end":          "=\||",
+
+        "bottom_final_pg_left":         "`---",
+        "bottom_final_pg_middle":       "~___~",
+        "bottom_final_pg_end":          "--''"
+    }
+    page_length = length // 2
+    final_book_top = "    " + book_parts['top_level']*page_length + " " + book_parts['top_level']*page_length + \
+        "    \n" + book_parts['top_start'] + " "*(page_length-1) + book_parts['top_middle'] + " "*(page_length-1) + \
+        book_parts['top_end']
+    
+    final_book_middle = ( book_parts['middle_start'] + " "*(page_length-1) + book_parts['middle'] + \
+        " "*(page_length-1) + book_parts['middle_start'] + "\n" ) * width
+    
+    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level']*(page_length-1) + \
+        book_parts['bottom_single_pg_middle'] + book_parts['top_level']*(page_length-1) + \
+        book_parts['bottom_single_pg_start']  + "\n"
+
+    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "="*(page_length-1) + \
+        book_parts['bottom_multi_pg_middle'] +  "="*(page_length-1) + book_parts['bottom_multi_pg_end'] + "\n"
+
+    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-"*(page_length-2) + \
+        book_parts['bottom_final_pg_middle'] + "-"*(page_length-2) + book_parts["bottom_final_pg_end"] + "\n"
+
+    return (final_book_top+final_book_middle+final_bottom_single_pg+final_bottom_multi_pg+final_bottom_final_pg, 200)
+
+
 def connect_to_db() -> CMySQLConnection:
     """ Connect to MySQL database """
     conn = None
@@ -163,8 +255,10 @@ def connect_to_db() -> CMySQLConnection:
 
 
 def set_single_verse_bible_version(book_version: str) -> str:
-    # Cannot passed in book_version, must be done manually to prevent SQL
-    # injection
+    '''
+    The Book version cannot be passed in dynamically at execution 
+    (like with the verses), so the command must be selected dynamically.
+    '''
     if book_version == "t_asv":
         return "SELECT t from t_asv where id=%s"
     elif book_version == "t_bbe":
@@ -180,6 +274,10 @@ def set_single_verse_bible_version(book_version: str) -> str:
 
 
 def set_multiple_verse_bible_version(book_version: str) -> str:
+    '''
+    The Book version cannot be passed in dynamically at execution 
+    (like with the verses), so the command must be selected dynamically.
+    '''
     if book_version == "t_asv":
         return "SELECT t from t_asv where id between %s and %s"
     elif book_version == "t_bbe":
@@ -195,6 +293,10 @@ def set_multiple_verse_bible_version(book_version: str) -> str:
 
 
 def set_entire_chapter_bible_version(book_version: str) -> str:
+    '''
+    The Book version cannot be passed in dynamically at execution 
+    (like with the verses), so the command must be selected dynamically.
+    '''
     if book_version == "t_asv":
         return "SELECT t from t_asv where id like %s"
     elif book_version == "t_bbe":
@@ -212,8 +314,12 @@ def set_entire_chapter_bible_version(book_version: str) -> str:
 def bookname_to_bookid(
         book: str,
         database_connection: CMySQLConnection) -> str:
-    # For some reason, several books return several identical results.
-    # Ensuring that p=1, eliminates this problem.
+    '''
+    Convert a book name into the ID of the book (number in bible)
+    so it can be queried. 
+    Examples:
+        John => 
+    '''
     db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
     db_parameters = (book,)
     result = query_db(
@@ -232,7 +338,7 @@ def query_single_verse(
         book: str,
         chapter: str,
         verse: str,
-        args: ImmutableMultiDict) -> ReturnObject:
+        args) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
         return ReturnObject(Status.Failure.value, "Cannot connect to local DB")
@@ -274,7 +380,7 @@ def query_multiple_verses_one_book(
         book: str,
         chapter: str,
         verse: str,
-        args: ImmutableMultiDict) -> ReturnObject:
+        args) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
         return ReturnObject(
@@ -326,7 +432,7 @@ def query_multiple_verses_one_book(
     return result
 
 
-def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict):
+def query_entire_chapter(book: str, chapter: str, args):
     db_conn = connect_to_db()
     if db_conn is None:
         return ReturnObject(
@@ -346,6 +452,7 @@ def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict):
     except AssertionError as ae:
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
+    # %% is the escaped wildcard '%' in mysql. 
     entire_verse = "0" * (2 - len(book_id)) + book_id + \
         "0" * (3 - len(chapter)) + chapter + "%%"
 
@@ -369,6 +476,7 @@ def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
             cursor.execute(db_cmd, parameters)
             if cursor.with_rows:
                 text = cursor.fetchall()
+                # Combine all returned fields into a single string.
                 return ReturnObject(Status.Success.value,
                                     ' '.join([str(verse[0]) for verse in text]))
         except mysql.connector.Error as e:
@@ -383,16 +491,22 @@ def parse_db_response(result: ReturnObject) -> tuple:
     This returns a tuple that can be returned to the client.
     The color formatting will also be done here.
     '''
+
     if result.get_error() == Status.Failure.value:
         return (result.get_content(), 400)
     elif result.get_error() == Status.MajorFailure.value:
         return (result.get_content(), 500)
     if result.get_content() == '':
         return (f"Verse not found!\n", 400)
+    # Where the color formatting will go
     return (result.get_content() + "\n", 200)
 
 
 def are_args_valid(book: str, chapter: str, verse: str) -> bool:
+    '''
+    Make sure the arguments passed in to the command are valid. This includes
+        1. Verses have valid ranges (4-5)
+    '''
     if '-' in verse:
         [starting_verse, ending_verse] = verse.split("-")
         return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(
