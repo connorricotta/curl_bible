@@ -9,23 +9,27 @@
 #   - World English Bible (WEB)
 #   - Young's Literal Translatiobible.sh/book=John&verse=3&verse=15,17,19:20n (YLT)
 
-
-from turtle import width
+# Imports
 from flask import Flask, request
-import mysql.connector
-from mysql.connector import Error
-import enum
+from mysql.connector import Error, connect
+from enum import Enum
 from mysql.connector.connection_cext import CMySQLConnection
+from yaml import safe_load
+from os import path
+from sys import exit
+import logging
 
+# Global Vars
 app = Flask(__name__)
+db_info = {}
 
 
-class Query(enum.Enum):
+class Query(Enum):
     Single = 0
     Multiple = 1
 
 
-class Status(enum.Enum):
+class Status(Enum):
     Success = 0
     Failure = 401
     MajorFailure = 501
@@ -121,6 +125,7 @@ def basic_path(full_verse):
         ))
 
     except Exception as e:
+        logging.warning(f"Uncaught error {e}")
         return ("Invalid verse", 400)
 
 
@@ -142,7 +147,7 @@ def path_query(book, chapter, verse):
             request.args))
 
 
-@app.route('/verses')
+@app.route('/versions')
 def show_bible_versions():
     '''
     Just return a list of the bibles supported by this webapp.
@@ -150,17 +155,17 @@ def show_bible_versions():
     '''
     return ('''
     All current supported versions of the Bible.
-    Use the value in 'Version Name' to use that version of the bible, such as: 
+    Use the value in 'Version Name' to use that version of the bible, such as:
         curl -L "bible.sh/John:3:15?version=BBE"
 
     ╭──────────────┬──────────┬─────────────────────────────┬────────────────────────────────────────────────────────────┬───────────────╮
     │ Version Name │ Language │ Name of version             │ Wikipedia Link                                             │ Copyright     │
     ├──────────────┼──────────┼─────────────────────────────┼────────────────────────────────────────────────────────────┼───────────────┤
-    │     ASV      │ english  │ American Standard-ASV1901   │ http://en.wikipedia.org/wiki/American_Standard_Version     │ Public Domain │
-    │     BBE      │ english  │ Bible in Basic English      │ http://en.wikipedia.org/wiki/Bible_in_Basic_English        │ Public Domain │
-    │     KJV      │ english  │ King James Version          │ http://en.wikipedia.org/wiki/King_James_Version            │ Public Domain │
-    │     WEB      │ english  │ World English Bible         │ http://en.wikipedia.org/wiki/World_English_Bible           │ Public Domain │
-    │     YLT      │ english  │ Young's Literal Translation │ http://en.wikipedia.org/wiki/Young%27s_Literal_Translation │ Public Domain │
+    │     ASV      │ English  │ American Standard (ASV1901) │ http://en.wikipedia.org/wiki/American_Standard_Version     │ Public Domain │
+    │     BBE      │ English  │ Bible in Basic English      │ http://en.wikipedia.org/wiki/Bible_in_Basic_English        │ Public Domain │
+    │     KJV      │ English  │ King James Version          │ http://en.wikipedia.org/wiki/King_James_Version            │ Public Domain │
+    │     WEB      │ English  │ World English Bible         │ http://en.wikipedia.org/wiki/World_English_Bible           │ Public Domain │
+    │     YLT      │ English  │ Young's Literal Translation │ http://en.wikipedia.org/wiki/Young%27s_Literal_Translation │ Public Domain │
     ╰──────────────┴──────────┴─────────────────────────────┴────────────────────────────────────────────────────────────┴───────────────╯
     ''', 200)
 
@@ -169,69 +174,93 @@ def show_bible_versions():
 def render_book():
     print('test')
     if 'length' in request.args and str.isnumeric(request.args['length']) and \
-        'width' in request.args and str.isnumeric(request.args['width']) :
+            'width' in request.args and str.isnumeric(request.args['width']):
         width = int(request.args['width'])
         length = int(request.args['length'])
     else:
         width = 20
         length = 20
     book = '''
-start                middle                 end    
+start                middle                 end
   |                    |                     |
   V                    V                     V
-    ___________________ ___________________    
-.-/|                   V                   |\-. <─ top
-||||                   │                   |||| 
-||||                   │       ~~*~~       ||||
-||||    --==*==--      │                   ||||
+    ___________________ ___________________
+.-/|                   V                   |\\-. <─ top
 ||||                   │                   ||||
 ||||                   │                   ||||
-||||                   │     --==*==--     |||| <─ middle
+||||                   │                   ||||
+||||                   │                   ||||
+||||                   │                   ||||
+||||                   │                   |||| <─ middle
 ||||                   │                   ||||
 ||||                   │                   ||||
 ||||                   │                   ||||
 ||||                   │                   ||||
 ||||__________________ │ __________________|||| <─ bottom_single_pg
-||/===================\│/===================\|| <─ bottom_multi_pg
+||/===================\\│/===================\\|| <─ bottom_multi_pg
 `--------------------~___~-------------------'' <─ bottom_final_pg
 '''
     book_parts = {
-        "top_level":                    "_",
-        "top_start":                    ".-/|",
-        "top_middle":                   " V ",
-        "top_end":                      "|\-.\n",
-        "middle_start":                 "||||",
-        "middle":                       " | ",
-        "bottom_single_pg_start":       "||||",
-        "bottom_single_pg_middle":      " | ",
+        "top_level": "_",
+        "top_start": ".-/|",
+        "top_middle": " V ",
+        "top_end": "|\\-.\n",
+        "middle_start": "||||",
+        "middle": " | ",
+        "bottom_single_pg_start": "||||",
+        "bottom_single_pg_middle": " | ",
 
-        "bottom_multi_pg_left":         "||/=",
-        "bottom_multi_pg_middle":       "\│/",
-        "bottom_multi_pg_end":          "=\||",
+        "bottom_multi_pg_left": "||/=",
+        "bottom_multi_pg_middle": "\\│/",
+        "bottom_multi_pg_end": "=\\||",
 
-        "bottom_final_pg_left":         "`---",
-        "bottom_final_pg_middle":       "~___~",
-        "bottom_final_pg_end":          "--''"
+        "bottom_final_pg_left": "`---",
+        "bottom_final_pg_middle": "~___~",
+        "bottom_final_pg_end": "--''"
     }
     page_length = length // 2
-    final_book_top = "    " + book_parts['top_level']*page_length + " " + book_parts['top_level']*page_length + \
-        "    \n" + book_parts['top_start'] + " "*(page_length-1) + book_parts['top_middle'] + " "*(page_length-1) + \
+    final_book_top = "    " + book_parts['top_level'] * page_length + " " + book_parts['top_level'] * page_length + \
+        "    \n" + book_parts['top_start'] + " " * (page_length - 1) + book_parts['top_middle'] + " " * (page_length - 1) + \
         book_parts['top_end']
-    
-    final_book_middle = ( book_parts['middle_start'] + " "*(page_length-1) + book_parts['middle'] + \
-        " "*(page_length-1) + book_parts['middle_start'] + "\n" ) * width
-    
-    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level']*(page_length-1) + \
-        book_parts['bottom_single_pg_middle'] + book_parts['top_level']*(page_length-1) + \
-        book_parts['bottom_single_pg_start']  + "\n"
 
-    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "="*(page_length-1) + \
-        book_parts['bottom_multi_pg_middle'] +  "="*(page_length-1) + book_parts['bottom_multi_pg_end'] + "\n"
+    final_book_middle = (book_parts['middle_start'] + " " * (page_length - 1) + book_parts['middle'] +
+                         " " * (page_length - 1) + book_parts['middle_start'] + "\n") * width
 
-    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-"*(page_length-2) + \
-        book_parts['bottom_final_pg_middle'] + "-"*(page_length-2) + book_parts["bottom_final_pg_end"] + "\n"
+    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_middle'] + book_parts['top_level'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_start'] + "\n"
 
-    return (final_book_top+final_book_middle+final_bottom_single_pg+final_bottom_multi_pg+final_bottom_final_pg, 200)
+    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "=" * (page_length - 1) + \
+        book_parts['bottom_multi_pg_middle'] + "=" * \
+        (page_length - 1) + book_parts['bottom_multi_pg_end'] + "\n"
+
+    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-" * (page_length - 2) + \
+        book_parts['bottom_final_pg_middle'] + "-" * \
+        (page_length - 2) + book_parts["bottom_final_pg_end"] + "\n"
+
+    return (final_book_top + final_book_middle + final_bottom_single_pg +
+            final_bottom_multi_pg + final_bottom_final_pg, 200)
+
+
+@app.before_first_request
+def config():
+    '''
+    1. Read in the configuration file in order to connect to the database on app start-up.
+    2. Enable logging
+    '''
+    global db_info
+    if not path.exists('config/db.yaml'):
+        logging.critical(
+            "Cannot load DB config file, check README in GitHub repo")
+        exit(1)
+    with open('config/db.yaml') as f:
+        db_info = safe_load(f)
+
+    logging.basicConfig(
+        filename='bible.log',
+        filemode='a',
+        format='%(asctime)s | Level:%(levelname)s | Logger:%(name)s | Src:%(filename)s.%(funcName)s@%(lineno)d | Msg:%(message)s',
+        datefmt='%m/%d/%y %I:%M:%S %p %z (%Z)')
 
 
 def connect_to_db() -> CMySQLConnection:
@@ -239,24 +268,25 @@ def connect_to_db() -> CMySQLConnection:
     conn = None
 
     try:
-        conn = mysql.connector.connect(
-            host='localhost',
-            database='bible',
-            user='root',
-            password='secret',
-            port='33060')
+        conn = connect(
+            host=db_info['host'],
+            database=db_info['database'],
+            user=db_info['user'],
+            password=db_info['password'],
+            port=db_info['port']
+        )
 
         if conn.is_connected():
             return conn
 
     except Error as e:
-        # TODO add logging
+        logging.critical(f"Cannot connect to DB! {e}")
         return None
 
 
 def set_single_verse_bible_version(book_version: str) -> str:
     '''
-    The Book version cannot be passed in dynamically at execution 
+    The Book version cannot be passed in dynamically at execution
     (like with the verses), so the command must be selected dynamically.
     '''
     if book_version == "t_asv":
@@ -275,7 +305,7 @@ def set_single_verse_bible_version(book_version: str) -> str:
 
 def set_multiple_verse_bible_version(book_version: str) -> str:
     '''
-    The Book version cannot be passed in dynamically at execution 
+    The Book version cannot be passed in dynamically at execution
     (like with the verses), so the command must be selected dynamically.
     '''
     if book_version == "t_asv":
@@ -294,7 +324,7 @@ def set_multiple_verse_bible_version(book_version: str) -> str:
 
 def set_entire_chapter_bible_version(book_version: str) -> str:
     '''
-    The Book version cannot be passed in dynamically at execution 
+    The Book version cannot be passed in dynamically at execution
     (like with the verses), so the command must be selected dynamically.
     '''
     if book_version == "t_asv":
@@ -316,9 +346,7 @@ def bookname_to_bookid(
         database_connection: CMySQLConnection) -> str:
     '''
     Convert a book name into the ID of the book (number in bible)
-    so it can be queried. 
-    Examples:
-        John => 
+    so it can be queried.
     '''
     db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
     db_parameters = (book,)
@@ -354,6 +382,7 @@ def query_single_verse(
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
+        logging.warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
 
     verse_id = "0" * (2 - len(book_id)) + book_id + "0" * \
@@ -362,7 +391,7 @@ def query_single_verse(
     db_cmd = set_single_verse_bible_version(bible_version)
     parameters = (verse_id,)
     if db_cmd is None:
-        # TODO log invalid bible version
+        logging.warning(f"Cannot find bible version {verse_id}.")
         return ReturnObject(Status.Failure.value, "Invalid Bible Version")
     result = query_db(db_conn, db_cmd, parameters)
 
@@ -371,6 +400,7 @@ def query_single_verse(
     try:
         return ReturnObject(Status.Success.value, result.get_content())
     except TypeError as te:
+        logging.warning(f"Invalid DB return {te}")
         return ReturnObject(
             Status.MajorFailure,
             "Invalid return from DB, please contact site admin")
@@ -398,6 +428,7 @@ def query_multiple_verses_one_book(
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
+        logging.warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
     # Pull out the starting and ending verse
@@ -450,9 +481,10 @@ def query_entire_chapter(book: str, chapter: str, args):
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
+        logging.warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
-    # %% is the escaped wildcard '%' in mysql. 
+    # %% is the escaped wildcard '%' in mysql.
     entire_verse = "0" * (2 - len(book_id)) + book_id + \
         "0" * (3 - len(chapter)) + chapter + "%%"
 
@@ -479,8 +511,8 @@ def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
                 # Combine all returned fields into a single string.
                 return ReturnObject(Status.Success.value,
                                     ' '.join([str(verse[0]) for verse in text]))
-        except mysql.connector.Error as e:
-            # TODO log error 'e'
+        except Error as e:
+            logging.warning(f"Bible verse not found. {e}")
             return ReturnObject(Status.Failure.value, "Verse not found")
 
 
