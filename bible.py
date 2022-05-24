@@ -18,10 +18,11 @@ from yaml import safe_load
 from os import path
 from sys import exit
 import logging
+from book_config import Book
 
 # Global Vars
 app = Flask(__name__)
-db_info = {}
+config = {}
 
 
 class Query(Enum):
@@ -172,34 +173,28 @@ def show_bible_versions():
 
 @app.route('/book_render')
 def render_book():
-    print('test')
-    if 'length' in request.args and str.isnumeric(request.args['length']) and \
-            'width' in request.args and str.isnumeric(request.args['width']):
-        width = int(request.args['width'])
-        length = int(request.args['length'])
-    else:
-        width = 20
-        length = 20
-    book = '''
-start                middle                 end
-  |                    |                     |
-  V                    V                     V
-    ___________________ ___________________
-.-/|                   V                   |\\-. <─ top
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   |||| <─ middle
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   ||||
-||||                   │                   ||||
-||||__________________ │ __________________|||| <─ bottom_single_pg
-||/===================\\│/===================\\|| <─ bottom_multi_pg
-`--------------------~___~-------------------'' <─ bottom_final_pg
-'''
+    '''   
+    start                middle                 end
+    |                    |                     |
+    V                    V                     V
+        ___________________ ___________________
+    .-/|                   ⋁                   |\-. <─ top
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   |||| <─ middle
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||__________________ │ __________________|||| <─ bottom_single_pg
+    ||/===================\│/===================\|| <─ bottom_multi_pg
+    `--------------------~___~--------------------𝅪 <─ bottom_final_pg
+    This book is rendered using static parts (mostly the corners and the middle)
+    and the rest is generated dynamically based on the parameters passed in. 
+    '''
     book_parts = {
         "top_level": "_",
         "top_start": ".-/|",
@@ -216,27 +211,38 @@ start                middle                 end
 
         "bottom_final_pg_left": "`---",
         "bottom_final_pg_middle": "~___~",
-        "bottom_final_pg_end": "--''"
+        "bottom_final_pg_end": "---𝅪"
     }
-    page_length = length // 2
-    final_book_top = "    " + book_parts['top_level'] * page_length + " " + book_parts['top_level'] * page_length + \
-        "    \n" + book_parts['top_start'] + " " * (page_length - 1) + book_parts['top_middle'] + " " * (page_length - 1) + \
-        book_parts['top_end']
+    if 'length' in request.args and str.isnumeric(request.args['length']) and \
+            'width' in request.args and str.isnumeric(request.args['width']):
+        width = int(request.args['width'])
+        length = int(request.args['length'])
+    else:
+        width = 40
+        length = 20
 
-    final_book_middle = (book_parts['middle_start'] + " " * (page_length - 1) + book_parts['middle'] +
-                         " " * (page_length - 1) + book_parts['middle_start'] + "\n") * width
+    book = Book()
+    book_parts = book.get_book_parts()
+    # I know this looks strange, but it allows for code re-use. 
+    page_length = width // 2
+    final_book_top = "    " + book_parts['top_level']['term_text'] * page_length + " " + book_parts['top_level']['term_text'] * page_length + \
+        "    \n" + book_parts['top_start']['term_text'] + " " * (page_length - 1) + book_parts['top_middle']['term_text'] + " " * (page_length - 1) + \
+        book_parts['top_end']['term_text']
 
-    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level'] * (page_length - 1) + \
-        book_parts['bottom_single_pg_middle'] + book_parts['top_level'] * (page_length - 1) + \
-        book_parts['bottom_single_pg_start'] + "\n"
+    final_book_middle = (book_parts['middle_start']['term_text'] + " " * (page_length - 1) + book_parts['middle']['term_text'] +
+                         " " * (page_length - 1) + book_parts['middle_end']['term_text'] + "\n") * length
 
-    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "=" * (page_length - 1) + \
-        book_parts['bottom_multi_pg_middle'] + "=" * \
-        (page_length - 1) + book_parts['bottom_multi_pg_end'] + "\n"
+    final_bottom_single_pg = book_parts['bottom_single_pg_start']['term_text'] + book_parts['top_level']['term_text'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_middle']['term_text'] + book_parts['top_level']['term_text'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_end']['term_text'] + "\n"
 
-    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-" * (page_length - 2) + \
-        book_parts['bottom_final_pg_middle'] + "-" * \
-        (page_length - 2) + book_parts["bottom_final_pg_end"] + "\n"
+    final_bottom_multi_pg = book_parts['bottom_multi_pg_left']['term_text'] + "=" * (page_length - 1) + \
+        book_parts['bottom_multi_pg_middle']['term_text'] + "=" * \
+        (page_length - 1) + book_parts['bottom_multi_pg_end']['term_text'] + "\n"
+
+    final_bottom_final_pg = book_parts['bottom_final_pg_left']['term_text'] + "-" * (page_length - 2) + \
+        book_parts['bottom_final_pg_middle']['term_text'] + "-" * \
+        (page_length - 2) + book_parts["bottom_final_pg_end"]['term_text'] + "\n"
 
     return (final_book_top + final_book_middle + final_bottom_single_pg +
             final_bottom_multi_pg + final_bottom_final_pg, 200)
@@ -248,13 +254,13 @@ def config():
     1. Read in the configuration file in order to connect to the database on app start-up.
     2. Enable logging
     '''
-    global db_info
-    if not path.exists('config/db.yaml'):
+    global config
+    if not path.exists('config/config.yaml'):
         logging.critical(
             "Cannot load DB config file, check README in GitHub repo")
         exit(1)
-    with open('config/db.yaml') as f:
-        db_info = safe_load(f)
+    with open('config/config.yaml') as f:
+        config = safe_load(f)
 
     logging.basicConfig(
         filename='bible.log',
@@ -269,11 +275,11 @@ def connect_to_db() -> CMySQLConnection:
 
     try:
         conn = connect(
-            host=db_info['host'],
-            database=db_info['database'],
-            user=db_info['user'],
-            password=db_info['password'],
-            port=db_info['port']
+            host=config['db']['host'],
+            database=config['db']['database'],
+            user=config['db']['user'],
+            password=config['db']['password'],
+            port=config['db']['port']
         )
 
         if conn.is_connected():
