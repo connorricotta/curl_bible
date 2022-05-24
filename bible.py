@@ -173,12 +173,12 @@ def show_bible_versions():
 
 @app.route('/book_render')
 def render_book():
-    '''   
+    '''
     start                middle                 end
     |                    |                     |
     V                    V                     V
         ___________________ ___________________
-    .-/|                   ⋁                   |\-. <─ top
+    .-/|                   ⋁                   |\\-. <─ top
     ||||                   │                   ||||
     ||||                   │                   ||||
     ||||                   │                   ||||
@@ -190,10 +190,10 @@ def render_book():
     ||||                   │                   ||||
     ||||                   │                   ||||
     ||||__________________ │ __________________|||| <─ bottom_single_pg
-    ||/===================\│/===================\|| <─ bottom_multi_pg
+    ||/===================\\│/===================\\|| <─ bottom_multi_pg
     `--------------------~___~--------------------𝅪 <─ bottom_final_pg
     This book is rendered using static parts (mostly the corners and the middle)
-    and the rest is generated dynamically based on the parameters passed in. 
+    and the rest is generated dynamically based on the parameters passed in.
     '''
     book_parts = {
         "top_level": "_",
@@ -223,7 +223,7 @@ def render_book():
 
     book = Book()
     book_parts = book.get_book_parts()
-    # I know this looks strange, but it allows for code re-use. 
+    # I know this looks strange, but it allows for code re-use.
     page_length = width // 2
     final_book_top = "    " + book_parts['top_level']['term_text'] * page_length + " " + book_parts['top_level']['term_text'] * page_length + \
         "    \n" + book_parts['top_start']['term_text'] + " " * (page_length - 1) + book_parts['top_middle']['term_text'] + " " * (page_length - 1) + \
@@ -238,11 +238,13 @@ def render_book():
 
     final_bottom_multi_pg = book_parts['bottom_multi_pg_left']['term_text'] + "=" * (page_length - 1) + \
         book_parts['bottom_multi_pg_middle']['term_text'] + "=" * \
-        (page_length - 1) + book_parts['bottom_multi_pg_end']['term_text'] + "\n"
+        (page_length - 1) + \
+        book_parts['bottom_multi_pg_end']['term_text'] + "\n"
 
     final_bottom_final_pg = book_parts['bottom_final_pg_left']['term_text'] + "-" * (page_length - 2) + \
         book_parts['bottom_final_pg_middle']['term_text'] + "-" * \
-        (page_length - 2) + book_parts["bottom_final_pg_end"]['term_text'] + "\n"
+        (page_length - 2) + \
+        book_parts["bottom_final_pg_end"]['term_text'] + "\n"
 
     return (final_book_top + final_book_middle + final_bottom_single_pg +
             final_bottom_multi_pg + final_bottom_final_pg, 200)
