@@ -612,7 +612,12 @@ def parse_db_response(result: ReturnObject, options: dict) -> tuple:
     if options is not None:
         if options['text_only'] == True:
             return (result.get_content() + "\n", 200)
-        # Return the full text
+        else:
+            output = create_book(result.content, options)
+            if output.is_error():
+                return (output.get_content(), 400)
+            else:
+                return (output.get_content()[0], 200)
     else:
         output = create_book(result.content, options)
         if output.is_error():
@@ -676,7 +681,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
         if 'length' in options and options['length'] > 0:
             length = options['length']
         else:
-            return ReturnObject(Status.Failure.value, "Invalid length")
+            return ReturnObject(Status.Failure.value, "Invalid length\n")
 
     # Width is the total area of the text, so it must be split in half
     # (one for each side). Then 2 is taken to provide a space on each side.
@@ -684,7 +689,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
             width = options['width']
             splitter = textwrap.TextWrapper(width=(options['width'] // 2 - 2))
         else:
-            return ReturnObject(Status.Failure.value, "Invalid Width")
+            return ReturnObject(Status.Failure.value, "Invalid Width\n")
 
     else:
         width = 80
@@ -708,21 +713,24 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
 
             if (i == (length // 2 - 1)):
                 formatted_text[second_text_index] = formatted_text[second_text_index][:-3] + "..."
-            if i >= len(formatted_text):
-                final_book_middle_array.append(
-                    book_parts['middle_start']['term_text'] +
-                    " " * (page_width) +
-                    book_parts['middle']['term_text'] +
-                    " " * (page_width) +
-                    book_parts['middle_end']['term_text'] + "\n")  # nopep8
-            elif second_text_index >= i and i >= len(formatted_text):
+            # If too big for second text, only display the first
+            if i < len(formatted_text) and second_text_index >= len(
+                    formatted_text):
                 final_book_middle_array.append(
                     book_parts['middle_start']['term_text'] +
                     f" {text}" + " " * (page_width - (len(text) + 1)) +
                     book_parts['middle']['term_text'] +
                     " " * (page_width) +
                     book_parts['middle_end']['term_text'] + "\n")  # nopep8
-
+            # If too big for first, don't display any text
+            elif i >= len(formatted_text):
+                final_book_middle_array.append(
+                    book_parts['middle_start']['term_text'] +
+                    " " * (page_width) +
+                    book_parts['middle']['term_text'] +
+                    " " * (page_width) +
+                    book_parts['middle_end']['term_text'] + "\n")  # nopep8
+            # Display text regularly
             else:
                 final_book_middle_array.append(
                     book_parts['middle_start']['term_text'] +
@@ -732,7 +740,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
                     book_parts['middle_end']['term_text'] + "\n")  # nopep8
 
         except Exception as e:
-            logging.warning(e)
+            logging.exception(e)
             continue
 
     # final_book_middle = (book_parts['middle_start']['term_text'] + " " * (page_length - 1) + book_parts['middle']['term_text'] +

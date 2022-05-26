@@ -128,8 +128,8 @@ class Options:
                     self.width = int(value[-1])
             if 'l' in option or 'length' in option:
                 value = option.split("=")
-                if str.isnumeric(value[-1]) and int(value[-1] >= 0):
-                    self.length = int(value)
+                if str.isnumeric(value[-1]) and int(value[-1]) >= 0:
+                    self.length = int(value[-1])
         self.options_dict['text_only'] = self.text_only
         self.options_dict['text_color'] = self.text_color
         self.options_dict['width'] = self.width
