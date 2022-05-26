@@ -2,7 +2,7 @@
 ## Author: Connor Ricotta
 ## TODO
 - [X] Finish endpoints
-- [ ] Look into multi-verse queries not be escaped properly
+- [X] Look into multi-verse queries not be escaped properly
 - [X] logging
 - [X] version selection user friendly
 - [ ] color output
@@ -27,7 +27,7 @@
 * - [X] bible.sh/John/3
 * - [X] bible.sh/?book=John&verse=3
 
-- [ ] **Range of Chapters**
+- [X] **Range of Chapters**
 * bible.sh/John:3:15:John:4:27 ^ \
 ^ a maximum amount of 2500 characters are returned
 

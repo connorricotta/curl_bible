@@ -62,7 +62,7 @@ def argument_query():
         verse = request.args['verse']
 
         if not are_args_valid(book, chapter, verse):
-            return ("Invalid arguments", 400)
+            return ("Invalid arguments\n", 400)
 
         # Check for multiple quotes. This function only does quotes from the
         # same chapter.
@@ -119,7 +119,10 @@ def full_query(full_verse):
             [starting_book, starting_chapter, starting_verse,
                 ending_book, ending_chapter, ending_verse] = parts
 
-            print(starting_book)
+            return parse_db_response(
+                query_multiple_chapters(starting_book, starting_chapter, starting_verse,
+                                        ending_book, ending_chapter, ending_verse, request.args)
+            )
 
         # Otherwise, check for a single chapter
         if not are_args_valid(book, chapter, verse):
@@ -517,6 +520,53 @@ def query_entire_chapter(book: str, chapter: str, args):
     return result
 
 
+def query_multiple_chapters(starting_book: str, starting_chapter: str,
+                            starting_verse: str, ending_book: str, ending_chapter: str, ending_verse: str, args):
+    db_conn = connect_to_db()
+    if db_conn is None:
+        return ReturnObject(
+            Status.MajorFailure,
+            "Cannot connect to local DB, please contact site admin.")
+
+    # Set a default version if none is specified
+    if "version" in args:
+        bible_version = args['version']
+    else:
+        bible_version = "t_asv"
+
+    # Correlate book name to book id
+    starting_book_id = bookname_to_bookid(starting_book, db_conn)
+    ending_book_id = bookname_to_bookid(ending_book, db_conn)
+    try:
+        assert starting_book_id is not None and str.isnumeric(starting_book_id)
+        assert ending_book_id is not None and str.isnumeric(ending_book_id)
+    except AssertionError as ae:
+        logging.warning(f"Bible book not found! {ae}")
+        return ReturnObject(
+            Status.Failure.value, f"Book '{starting_book_id} {ending_book_id}' not found\n")
+
+    starting_verse_id = "0" * (2 - len(starting_book_id)) + starting_book_id + \
+        "0" * (3 - len(starting_chapter)) + starting_chapter + \
+        "0" * (3 - len(starting_verse)) + starting_verse
+
+    ending_verse_id = "0" * (2 - len(ending_book_id)) + ending_book_id + \
+        "0" * (3 - len(ending_chapter)) + ending_chapter + \
+        "0" * (3 - len(ending_verse)) + ending_verse
+
+    db_cmd = set_query_bible_version(bible_version, "range")
+    if db_cmd is None:
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
+    parameters = (starting_verse_id, ending_verse_id)
+
+    result = query_db(db_conn, db_cmd, parameters)
+
+    if result.is_error():
+        return ReturnObject(Status.Failure, result.get_error())
+    if result.get_content() == '':
+        return ReturnObject(Status.Failure, f"Verse not found!\n")
+    return result
+
+
 def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
     with db_conn.cursor(buffered=True) as cursor:
         try:
@@ -556,17 +606,25 @@ def are_args_valid(book: str, chapter: str, verse='0') -> bool:
     are included.
     Make sure the arguments passed in to the command are valid. This includes
         1. Book is made of ascii characters.
-        2. Verses have valid ranges (4-5) and numeric
-        3. Chapter is numeric
-        4. Verse is numeric
+        2. Verse is numeric and is equal to 176 or less (highest verse that appears in the bible)
+        3. Chapter is numeric and is equal to 150 or less (highest chapter that appears in the bible)
+        4. If verse is made of parts, each part is numeric and equal to 176 or less
     '''
     if verse != '0' and '-' in verse:
         [starting_verse, ending_verse] = verse.split("-")
-        return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(
-            starting_verse) and str.isnumeric(ending_verse)
+        # Make sure that each verse is a number and less than 177.
+        if (not str.isnumeric(starting_verse) or not str.isnumeric(ending_verse)) or \
+            (str.isnumeric(starting_verse) and int(starting_verse) > 176) or \
+                (str.isnumeric(ending_verse) and int(ending_verse) > 176):
+            return False
+        elif (str.isascii(book)):
+            return True
 
-    return str.isascii(book) and str.isnumeric(
-        chapter) and str.isnumeric(verse)
+    if (str.isnumeric(verse) and int(verse) <= 176 and
+        str.isnumeric(chapter) and int(chapter) <= 150 and
+            str.isascii(book)):
+        return True
+    return False
 
 
 if __name__ == "__main__":
