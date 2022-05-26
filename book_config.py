@@ -1,3 +1,6 @@
+from werkzeug.datastructures import ImmutableMultiDict
+
+
 class Book:
     '''
     Standard configuration for the book. Using text escaped characters
@@ -50,8 +53,8 @@ class Book:
                 "term_text": f"{brown}|{end}{gold}||{end}|"
             },
             "middle": {
-                "text": " | ",
-                "term_text": " : "
+                "text": "|",
+                "term_text": "|"
             },
             "middle_end": {
                 "text": "|||┃",
@@ -97,3 +100,42 @@ class Book:
 
     def get_book_parts(self) -> dict():
         return self.book_parts
+
+
+class Options:
+    width = 80
+    length = 20
+    text_only = False
+    text_color = True
+    options_dict = {}
+
+    def __init__(self, options: ImmutableMultiDict) -> None:
+        options_list = options.split(",")
+        for option in options_list:
+            if option in ['t', 'text']:
+                self.text_only = True
+            if option in ['nc', 'no_color']:
+                self.text_color = False
+            if option in ['c', 'color']:
+                self.text_color = True
+            if 'v' in option or 'version' in option:
+                version = option.split("=")[-1]
+                self.version = version
+                self.options_dict['version'] = self.version
+            if 'w' in option or 'width' in option:
+                value = option.split("=")
+                if str.isnumeric(value[-1]) and int(value[-1]) >= 0:
+                    self.width = int(value[-1])
+            if 'l' in option or 'length' in option:
+                value = option.split("=")
+                if str.isnumeric(value[-1]) and int(value[-1] >= 0):
+                    self.length = int(value)
+        self.options_dict['text_only'] = self.text_only
+        self.options_dict['text_color'] = self.text_color
+        self.options_dict['width'] = self.width
+        self.options_dict['length'] = self.length
+
+        pass
+
+    def get_options_dict(self) -> dict:
+        return self.options_dict
