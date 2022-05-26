@@ -78,19 +78,28 @@ def argument_query():
                 verse,
                 request.args))
 
+    elif "book" in request.args and "chapter" in request.args:
+        book = request.args['book']
+        chapter = request.args['chapter']
+        if not are_args_valid(book, chapter):
+            return ("Invalid arguments", 400)
+        return parse_db_response(
+            query_entire_chapter(
+                book,
+                chapter,
+                request.args))
+
     return ("Unknown error", 400)
 
 
 @app.route('/<full_verse>')
-def basic_path(full_verse):
+def full_query(full_verse):
     try:
-        # Check for <book>+<chapter>:<verses>
-        if '+' in full_verse:
-            book_and_parts = full_verse.split('+')
-            book = book_and_parts[0]
-            [chapter, verse] = book_and_parts[1].split(":")
+        parts = full_verse.split(":")
+        if len(parts) == 3:
+            [book, chapter, verse] = parts
 
-            # Check for multiple verses
+            # Check for a range of verses
             if '-' in verse:
                 if not are_args_valid(book, chapter, verse):
                     return ("Invalid arguments", 400)
@@ -98,27 +107,21 @@ def basic_path(full_verse):
                     query_multiple_verses_one_book(
                         book, chapter, verse, request.args))
 
-        # Check for <book>:<chapter>:<verse>
-        else:
-            parts = full_verse.split(":")
-            if len(parts) == 3:
-                [book, chapter, verse] = parts[0], parts[1], parts[2]
+        # Check for an entire chapter
+        elif len(parts) == 2:
+            [book, chapter] = parts
+            return parse_db_response(
+                query_entire_chapter(
+                    book, chapter, request.args))
 
-                # Check for multiple verses
-                if '-' in verse:
-                    if not are_args_valid(book, chapter, verse):
-                        return ("Invalid arguments", 400)
-                    return parse_db_response(
-                        query_multiple_verses_one_book(
-                            book, chapter, verse, request.args))
+        # Check for multiple chapters
+        elif len(parts) >= 6:
+            [starting_book, starting_chapter, starting_verse,
+                ending_book, ending_chapter, ending_verse] = parts
 
-            # Check for an entire chapter
-            elif len(parts) == 2:
-                [book, chapter] = parts[0], parts[1]
-                return parse_db_response(
-                    query_entire_chapter(
-                        book, chapter, request.args))
+            print(starting_book)
 
+        # Otherwise, check for a single chapter
         if not are_args_valid(book, chapter, verse):
             return ("Invalid arguments", 400)
         return parse_db_response(query_single_verse(
@@ -131,12 +134,15 @@ def basic_path(full_verse):
 
 
 @app.route('/<book>/<chapter>/<verse>')
-def path_query(book, chapter, verse):
+def slash_query_full(book, chapter, verse):
+    '''
+    Parse queries like:
+        - /John/3/15
+        - /John/3/15-19
+    '''
     if not are_args_valid(book, chapter, verse):
         return ("Invalid arguments", 400)
     if '-' in verse:
-        if not are_args_valid(book, chapter, verse):
-            return ("Invalid arguments", 400)
         return parse_db_response(
             query_multiple_verses_one_book(book, chapter, verse, request.args)
         )
@@ -145,6 +151,17 @@ def path_query(book, chapter, verse):
             book,
             chapter,
             verse,
+            request.args))
+
+
+@app.route('/<book>/<chapter>')
+def slash_query_part(book, chapter):
+    if not are_args_valid(book, chapter):
+        return ("Invalid arguments", 400)
+    return parse_db_response(
+        query_entire_chapter(
+            book,
+            chapter,
             request.args))
 
 
@@ -159,15 +176,15 @@ def show_bible_versions():
     Use the value in 'Version Name' to use that version of the bible, such as:
         curl -L "bible.sh/John:3:15?version=BBE"
 
-    ╭──────────────┬──────────┬─────────────────────────────┬────────────────────────────────────────────────────────────┬───────────────╮
-    │ Version Name │ Language │ Name of version             │ Wikipedia Link                                             │ Copyright     │
-    ├──────────────┼──────────┼─────────────────────────────┼────────────────────────────────────────────────────────────┼───────────────┤
-    │     ASV      │ English  │ American Standard (ASV1901) │ http://en.wikipedia.org/wiki/American_Standard_Version     │ Public Domain │
-    │     BBE      │ English  │ Bible in Basic English      │ http://en.wikipedia.org/wiki/Bible_in_Basic_English        │ Public Domain │
-    │     KJV      │ English  │ King James Version          │ http://en.wikipedia.org/wiki/King_James_Version            │ Public Domain │
-    │     WEB      │ English  │ World English Bible         │ http://en.wikipedia.org/wiki/World_English_Bible           │ Public Domain │
-    │     YLT      │ English  │ Young's Literal Translation │ http://en.wikipedia.org/wiki/Young%27s_Literal_Translation │ Public Domain │
-    ╰──────────────┴──────────┴─────────────────────────────┴────────────────────────────────────────────────────────────┴───────────────╯
+    ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
+    │ Version Name │ Language │ Name of version             │ Copyright     │
+    ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
+    │     ASV      │ English  │ American Standard (ASV1901) │ Public Domain │
+    │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
+    │     KJV      │ English  │ King James Version          │ Public Domain │
+    │     WEB      │ English  │ World English Bible         │ Public Domain │
+    │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
+    ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
     ''', 200)
 
 
@@ -292,59 +309,49 @@ def connect_to_db() -> CMySQLConnection:
         return None
 
 
-def set_single_verse_bible_version(book_version: str) -> str:
+def set_query_bible_version(book_version: str, query_type: str) -> str:
     '''
-    The Book version cannot be passed in dynamically at execution
-    (like with the verses), so the command must be selected dynamically.
+    The verse cannot be set dynamically, so this method must be used.
     '''
-    if book_version == "t_asv":
-        return "SELECT t from t_asv where id=%s"
-    elif book_version == "t_bbe":
-        return "SELECT t from t_bbe where id=%s"
-    elif book_version == "t_kjv":
-        return "SELECT t from t_kjv where id=%s"
-    elif book_version == "t_web":
-        return "SELECT t from t_web where id=%s"
-    elif book_version == "t_ylt":
-        return "SELECT t from t_ylt where id=%s"
-    else:
-        return None
+    if book_version in ["t_asv", "ASV"]:
+        if query_type == "single":
+            return "SELECT t from t_asv where id=%s"
+        elif query_type == "range":
+            return "SELECT t from t_asv where id between %s and %s"
+        elif query_type == "chapter":
+            return "SELECT t from t_asv where id like %s"
 
+    elif book_version in ["t_bbe", "BBE"]:
+        if query_type == "single":
+            return "SELECT t from t_bbe where id=%s"
+        elif query_type == "range":
+            return "SELECT t from t_bbe where id between %s and %s"
+        elif query_type == "chapter":
+            return "SELECT t from t_bbe where id like %s"
 
-def set_multiple_verse_bible_version(book_version: str) -> str:
-    '''
-    The Book version cannot be passed in dynamically at execution
-    (like with the verses), so the command must be selected dynamically.
-    '''
-    if book_version == "t_asv":
-        return "SELECT t from t_asv where id between %s and %s"
-    elif book_version == "t_bbe":
-        return "SELECT t from t_bbe where id between %s and %s"
-    elif book_version == "t_kjv":
-        return "SELECT t from t_kjv where id between %s and %s"
-    elif book_version == "t_web":
-        return "SELECT t from t_web where id between %s and %s"
-    elif book_version == "t_ylt":
-        return "SELECT t from t_ylt where id between %s and %s"
-    else:
-        return None
+    elif book_version in ["t_jkv", "JVK"]:
+        if query_type == "single":
+            return "SELECT t from t_jvk where id=%s"
+        elif query_type == "range":
+            return "SELECT t from t_jvk where id between %s and %s"
+        elif query_type == "chapter":
+            return "SELECT t from t_jvk where id like %s"
 
+    elif book_version in ["t_web", "WEB"]:
+        if query_type == "single":
+            return "SELECT t from t_web where id=%s"
+        elif query_type == "range":
+            return "SELECT t from t_web where id between %s and %s"
+        elif query_type == "chapter":
+            return "SELECT t from t_web where id like %s"
 
-def set_entire_chapter_bible_version(book_version: str) -> str:
-    '''
-    The Book version cannot be passed in dynamically at execution
-    (like with the verses), so the command must be selected dynamically.
-    '''
-    if book_version == "t_asv":
-        return "SELECT t from t_asv where id like %s"
-    elif book_version == "t_bbe":
-        return "SELECT t from t_bbe where id like %s"
-    elif book_version == "t_kjv":
-        return "SELECT t from t_kjv where id like %s"
-    elif book_version == "t_web":
-        return "SELECT t from t_web where id like %s"
-    elif book_version == "t_ylt":
-        return "SELECT t from t_ylt where id like %s"
+    elif book_version in ["t_ylt", "YLT"]:
+        if query_type == "single":
+            return "SELECT t from t_ylt where id=%s"
+        elif query_type == "range":
+            return "SELECT t from t_ylt where id between %s and %s"
+        elif query_type == "chapter":
+            return "SELECT t from t_ylt where id like %s"
     else:
         return None
 
@@ -396,7 +403,7 @@ def query_single_verse(
     verse_id = "0" * (2 - len(book_id)) + book_id + "0" * \
         (3 - len(chapter)) + chapter + "0" * (3 - len(verse)) + verse
 
-    db_cmd = set_single_verse_bible_version(bible_version)
+    db_cmd = set_query_bible_version(bible_version, "single")
     parameters = (verse_id,)
     if db_cmd is None:
         logging.warning(f"Cannot find bible version {verse_id}.")
@@ -426,8 +433,8 @@ def query_multiple_verses_one_book(
             "Cannot connect to local DB, please contact site admin.")
 
     # Set a default version if none is specified
-    if "version" in request.args:
-        bible_version = request.args['version']
+    if "version" in args:
+        bible_version = args['version']
     else:
         bible_version = "t_asv"
 
@@ -457,7 +464,7 @@ def query_multiple_verses_one_book(
         "0" * (3 - len(chapter)) + chapter + \
         "0" * (3 - len(ending_verse)) + ending_verse
 
-    db_cmd = set_multiple_verse_bible_version(bible_version)
+    db_cmd = set_query_bible_version(bible_version, "range")
     if db_cmd is None:
         return ReturnObject(Status.Failure.value, "Invalid Bible Version")
     parameters = (starting_verse_id, ending_verse_id)
@@ -496,7 +503,7 @@ def query_entire_chapter(book: str, chapter: str, args):
     entire_verse = "0" * (2 - len(book_id)) + book_id + \
         "0" * (3 - len(chapter)) + chapter + "%%"
 
-    db_cmd = set_entire_chapter_bible_version(bible_version)
+    db_cmd = set_query_bible_version(bible_version, "chapter")
     if db_cmd is None:
         return ReturnObject(Status.Failure.value, "Invalid Bible Version")
     parameters = (entire_verse,)
@@ -542,15 +549,22 @@ def parse_db_response(result: ReturnObject) -> tuple:
     return (result.get_content() + "\n", 200)
 
 
-def are_args_valid(book: str, chapter: str, verse: str) -> bool:
+def are_args_valid(book: str, chapter: str, verse='0') -> bool:
     '''
+    Returns True if the arguments are valid.
+    The default value of '0' is passed when queries with only books and chapters
+    are included.
     Make sure the arguments passed in to the command are valid. This includes
-        1. Verses have valid ranges (4-5)
+        1. Book is made of ascii characters.
+        2. Verses have valid ranges (4-5) and numeric
+        3. Chapter is numeric
+        4. Verse is numeric
     '''
-    if '-' in verse:
+    if verse != '0' and '-' in verse:
         [starting_verse, ending_verse] = verse.split("-")
         return str.isascii(book) and str.isnumeric(chapter) and str.isnumeric(
             starting_verse) and str.isnumeric(ending_verse)
+
     return str.isascii(book) and str.isnumeric(
         chapter) and str.isnumeric(verse)
 

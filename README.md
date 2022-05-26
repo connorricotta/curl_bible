@@ -1,10 +1,10 @@
 # Curl Bible
 ## Author: Connor Ricotta
 ## TODO
-- [ ] Finish endpoints
+- [X] Finish endpoints
 - [ ] Look into multi-verse queries not be escaped properly
-- [ ] logging
-- [ ] version selection user friendly
+- [X] logging
+- [X] version selection user friendly
 - [ ] color output
 ### Bible Endpoints 
 - [X] **Single Verse**
@@ -24,8 +24,8 @@
  
 - [ ] **Entire Chapters**
 * - [X] bible.sh/John:3
-* - [ ] bible.sh/John/3
-* - [ ] bible.sh/?book=John&verse=3
+* - [X] bible.sh/John/3
+* - [X] bible.sh/?book=John&verse=3
 
 - [ ] **Range of Chapters**
 * bible.sh/John:3:15:John:4:27 ^ \

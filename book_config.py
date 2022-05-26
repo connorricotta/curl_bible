@@ -51,7 +51,7 @@ class Book:
             },
             "middle": {
                 "text": " | ",
-                "term_text": " │ "
+                "term_text": " : "
             },
             "middle_end": {
                 "text": "|||┃",
