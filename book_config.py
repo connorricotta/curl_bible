@@ -30,76 +30,58 @@ class Book:
         white = "\33[38;5;231m"
         white_back = "\33[47m"
         end = "\33[0m"
-        self.book_parts = {
-            "top_level": {
-                "text": "_",
-                "term_text": "\33[37;1m_\33[0m",
-                "html_color": "_"
-            },
-            "top_start": {
-                "text": ".-/|",
-                "term_text": f"{brown}.{end}{gold}-/{end}|"
-            },
-            "top_middle": {
-                "text": " V ",
-                "term_text": " V "
-            },
-            "top_end": {
-                "text": "|\\-.\n",
-                "term_text": f"|{end}{gold}\\-{end}{brown}.{end}\n",
-            },
-            "middle_start": {
-                "text": "||||",
-                "term_text": f"{brown}|{end}{gold}||{end}|"
-            },
-            "middle": {
-                "text": "|",
-                "term_text": "|"
-            },
-            "middle_end": {
-                "text": "|||┃",
-                "term_text": f"{white}|{end}{gold}||{end}{brown}|{end}"
-            },
-            "bottom_single_pg_start": {
-                "text": "||||",
-                "term_text": f"{brown}|{end}{gold}||{end}{white}|{end}",
-            },
-            "bottom_single_pg_middle": {
-                "text": " | ",
-                "term_text": " │ "
-            },
-            "bottom_single_pg_end": {
-                "text": "||||",
-                "term_text": f"|{end}{gold}||{end}{brown}|{end}",
-            },
-            "bottom_multi_pg_left": {
-                "text": "||/=",
-                "term_text": f"{brown}|{end}{gold}|/="
-            },
-            "bottom_multi_pg_middle": {
-                "text": "\\|/",
-                "term_text": f"\33[0m\\|/{gold}"
-            },
-            "bottom_multi_pg_end": {
-                "text": "=\\||",
-                "term_text": f"=\\|{end}{brown}|{end}"
-            },
-            "bottom_final_pg_left": {
-                "text": "`---",
-                "term_text": f"{brown}`---"
-            },
-            "bottom_final_pg_middle": {
-                "text": "~___~",
-                "term_text": "~___~"
-            },
-            "bottom_final_pg_end": {
-                "text": "---𝅪",
-                "term_text": f"---𝅪{end}"
-            }
+        self.book_no_color = {
+            "top_level": "_",
+            "top_start": ".-/|",
+            "top_middle": " V ",
+            "top_end": "|\\-.\n",
+
+            "middle_start": "||||",
+            "middle": "|",
+            "middle_end": "||||",
+
+            "bottom_single_pg_start": "||||",
+            "bottom_single_pg_middle": " | ",
+            "bottom_single_pg_end": "||||",
+
+            "bottom_multi_pg_left": "||/=",
+            "bottom_multi_pg_middle": "\\|/",
+            "bottom_multi_pg_end": "=\\||",
+
+            "bottom_final_pg_left": "`---",
+            "bottom_final_pg_middle": "~___~",
+            "bottom_final_pg_end": "---𝅪",
         }
 
-    def get_book_parts(self) -> dict():
-        return self.book_parts
+        self.book_color = {
+            "top_level": "\33[37;1m_\33[0m",
+
+            "top_start": f"{brown}.{end}{gold}-/{end}|",
+            "top_middle": " V ",
+            "top_end": f"|{end}{gold}\\-{end}{brown}.{end}\n",
+            "middle_start": f"{brown}|{end}{gold}||{end}|",
+
+            "middle": "|",
+            "middle_end": f"{white}|{end}{gold}||{end}{brown}|{end}",
+
+            "bottom_single_pg_start": f"{brown}|{end}{gold}||{end}{white}|{end}",
+            "bottom_single_pg_middle": " │ ",
+            "bottom_single_pg_end": f"|{end}{gold}||{end}{brown}|{end}",
+
+            "bottom_multi_pg_left": f"{brown}|{end}{gold}|/=",
+            "bottom_multi_pg_middle": f"\33[0m\\|/{gold}",
+            "bottom_multi_pg_end": f"=\\|{end}{brown}|{end}",
+
+            "bottom_final_pg_left": f"{brown}`---",
+            "bottom_final_pg_middle": "~___~",
+            "bottom_final_pg_end": f"---𝅪{end}"
+        }
+
+    def get_no_color(self) -> dict():
+        return self.book_no_color
+
+    def get_color(self) -> dict():
+        return self.book_color
 
 
 class Options:

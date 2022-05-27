@@ -5,7 +5,8 @@
 - [X] Look into multi-verse queries not be escaped properly
 - [X] logging
 - [X] version selection user friendly
-- [ ] color output
+- [X] color output
+- [ ] Limit multi-text output
 ### Bible Endpoints 
 - [X] **Single Verse**
 * - [X] bible.sh/John:3:15
@@ -32,8 +33,8 @@
 ^ a maximum amount of 2500 characters are returned
 
 - [ ] **Change version**
-* bible.sh/John:3:15?version=YTL
-* bible.sh/book=John&verse=3&verse=15,17,19:20&version=YLT
+* - [X] bible.sh/John:3:15?version=YTL
+* - [X] bible.sh/book=John&chapter=3&verse=15:20&version=YLT
 ### Supports the following versions
    - King James Version (KJV)
    - American Standard-ASV1901 (ASV)

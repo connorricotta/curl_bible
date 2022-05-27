@@ -114,14 +114,14 @@ def full_query(full_verse):
                     return ("Invalid arguments", 400)
                 return parse_db_response(
                     query_multiple_verses_one_book(
-                        book, chapter, verse, request.args, options), options)
+                        book, chapter, verse, request.args, options), options, [book, chapter, verse])
 
         # Check for an entire chapter
         elif len(parts) == 2:
             [book, chapter] = parts
             return parse_db_response(
                 query_entire_chapter(
-                    book, chapter, request.args, options), options)
+                    book, chapter, request.args, options), options, [book, chapter])
 
         # Check for multiple chapters
         elif len(parts) >= 6:
@@ -130,14 +130,15 @@ def full_query(full_verse):
 
             return parse_db_response(
                 query_multiple_chapters(starting_book, starting_chapter, starting_verse,
-                                        ending_book, ending_chapter, ending_verse, request.args, options), options)
+                                        ending_book, ending_chapter, ending_verse, request.args, options), options,
+                [starting_book, starting_chapter, starting_verse, ending_book, ending_chapter, ending_verse])
 
         # Otherwise, check for a single chapter
         if not are_args_valid(book, chapter, verse):
             return ("Invalid arguments", 400)
         return parse_db_response(query_single_verse(
             book, chapter, verse, request.args, options
-        ), options)
+        ), options, [book, chapter, verse])
 
     except Exception as e:
         logging.exception(f"Uncaught error {e}")
@@ -157,14 +158,14 @@ def slash_query_full(book, chapter, verse):
     if '-' in verse:
         return parse_db_response(
             query_multiple_verses_one_book(
-                book, chapter, verse, request.args, options), options)
+                book, chapter, verse, request.args, options), options, [book, chapter, verse])
     return parse_db_response(
         query_single_verse(
             book,
             chapter,
             verse,
             request.args,
-            options), options)
+            options), options, [book, chapter, verse])
 
 
 @app.route('/<book>/<chapter>')
@@ -177,7 +178,7 @@ def slash_query_part(book, chapter):
             book,
             chapter,
             request.args,
-            options), options)
+            options), options, [book, chapter])
 
 
 @app.route('/versions')
@@ -239,26 +240,26 @@ def render_book():
     book_parts = book.get_book_parts()
     # I know this looks strange, but it allows for code re-use.
     page_length = width // 2
-    final_book_top = "    " + book_parts['top_level']['term_text'] * page_length + " " + book_parts['top_level']['term_text'] * page_length + \
-        "    \n" + book_parts['top_start']['term_text'] + " " * (page_length - 1) + book_parts['top_middle']['term_text'] + " " * (page_length - 1) + \
-        book_parts['top_end']['term_text']
+    final_book_top = "    " + book_parts['top_level'] * page_length + " " + book_parts['top_level'] * page_length + \
+        "    \n" + book_parts['top_start'] + " " * (page_length - 1) + book_parts['top_middle'] + " " * (page_length - 1) + \
+        book_parts['top_end']
 
-    final_book_middle = (book_parts['middle_start']['term_text'] + " " * (page_length - 1) + book_parts['middle']['term_text'] +
-                         " " * (page_length - 1) + book_parts['middle_end']['term_text'] + "\n") * length
+    final_book_middle = (book_parts['middle_start'] + " " * (page_length - 1) + book_parts['middle'] +
+                         " " * (page_length - 1) + book_parts['middle_end'] + "\n") * length
 
-    final_bottom_single_pg = book_parts['bottom_single_pg_start']['term_text'] + book_parts['top_level']['term_text'] * (page_length - 1) + \
-        book_parts['bottom_single_pg_middle']['term_text'] + book_parts['top_level']['term_text'] * (page_length - 1) + \
-        book_parts['bottom_single_pg_end']['term_text'] + "\n"
+    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_middle'] + book_parts['top_level'] * (page_length - 1) + \
+        book_parts['bottom_single_pg_end'] + "\n"
 
-    final_bottom_multi_pg = book_parts['bottom_multi_pg_left']['term_text'] + "=" * (page_length - 1) + \
-        book_parts['bottom_multi_pg_middle']['term_text'] + "=" * \
+    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "=" * (page_length - 1) + \
+        book_parts['bottom_multi_pg_middle'] + "=" * \
         (page_length - 1) + \
-        book_parts['bottom_multi_pg_end']['term_text'] + "\n"
+        book_parts['bottom_multi_pg_end'] + "\n"
 
-    final_bottom_final_pg = book_parts['bottom_final_pg_left']['term_text'] + "-" * (page_length - 2) + \
-        book_parts['bottom_final_pg_middle']['term_text'] + "-" * \
+    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-" * (page_length - 2) + \
+        book_parts['bottom_final_pg_middle'] + "-" * \
         (page_length - 2) + \
-        book_parts["bottom_final_pg_end"]['term_text'] + "\n"
+        book_parts["bottom_final_pg_end"] + "\n"
 
     return (final_book_top + final_book_middle + final_bottom_single_pg +
             final_bottom_multi_pg + final_bottom_final_pg, 200)
@@ -542,8 +543,10 @@ def query_multiple_chapters(starting_book: str, starting_chapter: str,
             "Cannot connect to local DB, please contact site admin.")
 
     # Set a default version if none is specified
-    if "version" in args or "version" in options:
+    if "version" in args:
         bible_version = args['version']
+    elif options is not None and "version" in options:
+        bible_version = options['version']
     else:
         bible_version = "t_asv"
 
@@ -594,7 +597,8 @@ def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
             return ReturnObject(Status.Failure.value, "Verse not found")
 
 
-def parse_db_response(result: ReturnObject, options: dict) -> tuple:
+def parse_db_response(result: ReturnObject, options: dict,
+                      queried_verse: dict) -> tuple:
     '''
     After querying the DB and getting a ResponseObject, this method parses it into a
     proper response for Flask.
@@ -609,21 +613,14 @@ def parse_db_response(result: ReturnObject, options: dict) -> tuple:
     if result.get_content() == '':
         return (f"Verse not found!\n", 400)
 
-    if options is not None:
-        if options['text_only'] == True:
-            return (result.get_content() + "\n", 200)
-        else:
-            output = create_book(result.content, options)
-            if output.is_error():
-                return (output.get_content(), 400)
-            else:
-                return (output.get_content()[0], 200)
+    if options is not None and options['text_only'] == True:
+        return (result.get_content() + "\n", 200)
+
+    output = create_book(result.content, options, queried_verse)
+    if output.is_error():
+        return (output.get_content(), 400)
     else:
-        output = create_book(result.content, options)
-        if output.is_error():
-            return (output.get_content(), 400)
-        else:
-            return (output.get_content()[0], 200)
+        return (output.get_content()[0], 200)
 
 
 def are_args_valid(book: str, chapter: str, verse='0') -> bool:
@@ -654,7 +651,8 @@ def are_args_valid(book: str, chapter: str, verse='0') -> bool:
     return False
 
 
-def create_book(bible_verse: str, options: ImmutableMultiDict):
+def create_book(bible_verse: str, options: ImmutableMultiDict,
+                request_verse: dict):
     '''
     start                middle                 end
     |                    |                     |
@@ -677,34 +675,55 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
     This book is rendered using static parts (mostly the corners and the middle)
     and the rest is generated dynamically based on the parameters passed in.
     '''
+    book = Book()
+
     if options is not None:
         if 'length' in options and options['length'] > 0:
             length = options['length']
         else:
             return ReturnObject(Status.Failure.value, "Invalid length\n")
 
-    # Width is the total area of the text, so it must be split in half
-    # (one for each side). Then 2 is taken to provide a space on each side.
+        # Width is the total area of the text, so it must be split in half
+        # (one for each side). Then 2 is taken to provide a space on each side.
         if 'width' in options and options['width'] // 2 > 2:
             width = options['width']
             splitter = textwrap.TextWrapper(width=(options['width'] // 2 - 2))
         else:
             return ReturnObject(Status.Failure.value, "Invalid Width\n")
 
+        if options['text_color'] == False:
+            book_parts = book.get_no_color()
+        else:
+            book_parts = book.get_color()
+
     else:
         width = 80
         length = 20
         splitter = textwrap.TextWrapper(width=38)
+        book_parts = book.get_color()
 
     formatted_text = splitter.wrap(bible_verse)
-    book = Book()
-    book_parts = book.get_book_parts()
-    # I know this looks strange, but it allows for code re-use.
-    page_width = width // 2
-    final_book_top = "    " + book_parts['top_level']['term_text'] * page_width + " " + book_parts['top_level']['term_text'] * page_width + \
-        "    \n" + book_parts['top_start']['term_text'] + " " * (page_width - 1) + book_parts['top_middle']['term_text'] + " " * (page_width - 1) + \
-        book_parts['top_end']['term_text']
     final_book_middle_array = []
+    page_width = width // 2
+    # Add three lines to the start of the verses
+    if len(request_verse) == 3:
+        formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}"
+    elif len(request_verse) == 6:
+        formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
+    else:
+        formatted_verse = ' '.join(request_verse)
+    spaced_verse = (page_width - len(formatted_verse)) // 2
+    formatted_text.insert(0, "")
+    formatted_text.insert(0, " " * spaced_verse +
+                          formatted_verse + " " * (spaced_verse - 1))
+    formatted_text.insert(0, "")
+
+    # Generating the book in this way allows for the easy modification of
+    # book generation.
+    final_book_top = "    " + book_parts['top_level'] * page_width + " " + book_parts['top_level'] * page_width + \
+        "    \n" + book_parts['top_start'] + " " * (page_width - 1) + book_parts['top_middle'] + " " * (page_width - 1) + \
+        book_parts['top_end']
+
     for i in range((length // 2)):
         try:
             if i < len(formatted_text):
@@ -712,53 +731,53 @@ def create_book(bible_verse: str, options: ImmutableMultiDict):
                 second_text_index = math.ceil(length / 2) + i
 
             if (i == (length // 2 - 1)):
-                formatted_text[second_text_index] = formatted_text[second_text_index][:-3] + "..."
+                if len(formatted_text[second_text_index]) >= page_width - 3:
+                    formatted_text[second_text_index] = formatted_text[second_text_index][:-3] + "..."
+                else:
+                    formatted_text[second_text_index] += "..."
             # If too big for second text, only display the first
             if i < len(formatted_text) and second_text_index >= len(
                     formatted_text):
                 final_book_middle_array.append(
-                    book_parts['middle_start']['term_text'] +
+                    book_parts['middle_start'] +
                     f" {text}" + " " * (page_width - (len(text) + 1)) +
-                    book_parts['middle']['term_text'] +
+                    book_parts['middle'] +
                     " " * (page_width) +
-                    book_parts['middle_end']['term_text'] + "\n")  # nopep8
+                    book_parts['middle_end'] + "\n")  # nopep8
             # If too big for first, don't display any text
             elif i >= len(formatted_text):
                 final_book_middle_array.append(
-                    book_parts['middle_start']['term_text'] +
+                    book_parts['middle_start'] +
                     " " * (page_width) +
-                    book_parts['middle']['term_text'] +
+                    book_parts['middle'] +
                     " " * (page_width) +
-                    book_parts['middle_end']['term_text'] + "\n")  # nopep8
+                    book_parts['middle_end'] + "\n")  # nopep8
             # Display text regularly
             else:
                 final_book_middle_array.append(
-                    book_parts['middle_start']['term_text'] +
+                    book_parts['middle_start'] +
                     f" {text}" + " " * (page_width - (len(text) + 1)) +
-                    book_parts['middle']['term_text'] +
+                    book_parts['middle'] +
                     f" {formatted_text[second_text_index]}" + " " * (page_width - (len(formatted_text[second_text_index]) + 1)) +
-                    book_parts['middle_end']['term_text'] + "\n")  # nopep8
+                    book_parts['middle_end'] + "\n")  # nopep8
 
         except Exception as e:
             logging.exception(e)
             continue
 
-    # final_book_middle = (book_parts['middle_start']['term_text'] + " " * (page_length - 1) + book_parts['middle']['term_text'] +
-    #                      " " * (page_length - 1) + book_parts['middle_end']['term_text'] + "\n") * length
+    final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level'] * (page_width - 1) + \
+        book_parts['bottom_single_pg_middle'] + book_parts['top_level'] * (page_width - 1) + \
+        book_parts['bottom_single_pg_end'] + "\n"
 
-    final_bottom_single_pg = book_parts['bottom_single_pg_start']['term_text'] + book_parts['top_level']['term_text'] * (page_width - 1) + \
-        book_parts['bottom_single_pg_middle']['term_text'] + book_parts['top_level']['term_text'] * (page_width - 1) + \
-        book_parts['bottom_single_pg_end']['term_text'] + "\n"
-
-    final_bottom_multi_pg = book_parts['bottom_multi_pg_left']['term_text'] + "=" * (page_width - 1) + \
-        book_parts['bottom_multi_pg_middle']['term_text'] + "=" * \
+    final_bottom_multi_pg = book_parts['bottom_multi_pg_left'] + "=" * (page_width - 1) + \
+        book_parts['bottom_multi_pg_middle'] + "=" * \
         (page_width - 1) + \
-        book_parts['bottom_multi_pg_end']['term_text'] + "\n"
+        book_parts['bottom_multi_pg_end'] + "\n"
 
-    final_bottom_final_pg = book_parts['bottom_final_pg_left']['term_text'] + "-" * (page_width - 2) + \
-        book_parts['bottom_final_pg_middle']['term_text'] + "-" * \
+    final_bottom_final_pg = book_parts['bottom_final_pg_left'] + "-" * (page_width - 2) + \
+        book_parts['bottom_final_pg_middle'] + "-" * \
         (page_width - 2) + \
-        book_parts["bottom_final_pg_end"]['term_text'] + "\n"
+        book_parts["bottom_final_pg_end"] + "\n"
 
     return ReturnObject(Status.Success.value, (final_book_top + ''.join(final_book_middle_array) + final_bottom_single_pg +
                                                final_bottom_multi_pg + final_bottom_final_pg, 200))
