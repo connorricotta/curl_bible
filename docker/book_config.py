@@ -107,10 +107,17 @@ class Options:
             if 'w' in option or 'width' in option:
                 value = option.split("=")
                 if str.isnumeric(value[-1]) and int(value[-1]) >= 0:
-                    self.width = int(value[-1])
+                    if int(value[-1]) > 400:
+                        self.width = 80
+                    else:
+                        self.width = int(value[-1])
             if 'l' in option or 'length' in option:
                 value = option.split("=")
                 if str.isnumeric(value[-1]) and int(value[-1]) >= 0:
+                    if int(value[-1]) > 200:
+                        self.length = 20
+                    else:
+                        self.length = int(value[-1])
                     self.length = int(value[-1])
             if 'random' in option:
                 self.options_dict['random'] = 'random'

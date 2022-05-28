@@ -7,22 +7,25 @@
 #   - King James Version (KJV)
 #   - Bible in Basic English (BBE)
 #   - World English Bible (WEB)
-#   - Young's Literal Translatiobible.sh/book=John&verse=3&verse=15,17,19:20n (YLT)
+#   - Young's Literal Translation (YLT)
 
 # Imports
-import math
-import textwrap
+from math import ceil
+from textwrap import TextWrapper
 from flask import Flask, request
 from mysql.connector import Error, connect
 from enum import Enum
 from mysql.connector.connection_cext import CMySQLConnection
 from yaml import safe_load
-from os import path
+from os import path, mkdir, getenv
 from sys import exit
-import logging
+from logging import exception, critical, warning, basicConfig, getLogger
 from book_config import Book, Options
 from werkzeug.datastructures import ImmutableMultiDict
 from random import choice, randint
+from pathlib import Path
+from dotenv import load_dotenv
+
 
 # Global Vars
 app = Flask(__name__)
@@ -54,10 +57,12 @@ class ReturnObject():
     def is_error(self):
         # Define an error status as having a value of 1
         # Otherwise, return success
+        if not isinstance(self.status, int):
+            return self.status.value % 2 == 1
         return self.status % 2 == 1
 
 
-@app.route("/", methods=["POST", "GET"])
+@app.route("/", methods=["GET"])
 def argument_query():
     # Check for arguments version
     options = parse_options(request.args)
@@ -89,7 +94,7 @@ def argument_query():
         book = request.args['book']
         chapter = request.args['chapter']
         if not are_args_valid(book, chapter):
-            return ("Invalid arguments", 400)
+            return ("Invalid arguments\n", 400)
         return parse_db_response(
             query_entire_chapter(
                 book,
@@ -101,17 +106,17 @@ def argument_query():
     elif "book" not in request.args and "chapter" not in request.args:
         options = parse_options({'options': 'random'})
         book = choice(['Matthew', 'Mark', 'Luke', 'John', 'Rev'])
-        chapter = str(randint(0, 10))
-        verse = f"{randint(0,5)}-{randint(6,10)}"
+        chapter = str(randint(1, 10))
+        verse = f"{randint(1,5)}-{randint(6,10)}"
 
         return parse_db_response(query_multiple_verses_one_book(book, chapter, verse, request.args, None),
                                  options, [book, chapter, verse])
 
-    logging.exception("Unknown error")
+    exception("Unknown error")
     return ("Unknown error", 400)
 
 
-@app.route('/<full_verse>')
+@app.route('/<full_verse>', methods=["GET"])
 def full_query(full_verse):
     try:
         parts = full_verse.split(":")
@@ -123,7 +128,7 @@ def full_query(full_verse):
             # Check for a range of verses
             if '-' in verse:
                 if not are_args_valid(book, chapter, verse):
-                    return ("Invalid arguments", 400)
+                    return ("Invalid arguments\n", 400)
                 return parse_db_response(
                     query_multiple_verses_one_book(
                         book, chapter, verse, request.args, options), options, [book, chapter, verse])
@@ -146,18 +151,18 @@ def full_query(full_verse):
                 [starting_book, starting_chapter, starting_verse, ending_book, ending_chapter, ending_verse])
 
         # Otherwise, check for a single chapter
-        if not are_args_valid(book, chapter, verse):
-            return ("Invalid arguments", 400)
+        if len(parts) == 1 or not are_args_valid(book, chapter, verse):
+            return ("Invalid arguments\n", 400)
         return parse_db_response(query_single_verse(
             book, chapter, verse, request.args, options
         ), options, [book, chapter, verse])
 
     except Exception as e:
-        logging.exception(f"Uncaught error {e}")
-        return ("Invalid verse", 400)
+        exception(f"Uncaught error {e}")
+        return ("Invalid arguments\n", 400)
 
 
-@app.route('/<book>/<chapter>/<verse>')
+@app.route('/<book>/<chapter>/<verse>', methods=["GET"])
 def slash_query_full(book, chapter, verse):
     '''
     Parse queries like:
@@ -165,7 +170,7 @@ def slash_query_full(book, chapter, verse):
         - /John/3/15-19
     '''
     if not are_args_valid(book, chapter, verse):
-        return ("Invalid arguments", 400)
+        return ("Invalid arguments\n", 400)
     options = parse_options(request.args)
     if '-' in verse:
         return parse_db_response(
@@ -180,11 +185,11 @@ def slash_query_full(book, chapter, verse):
             options), options, [book, chapter, verse])
 
 
-@app.route('/<book>/<chapter>')
+@app.route('/<book>/<chapter>', methods=["GET"])
 def slash_query_part(book, chapter):
     options = parse_options(request.args)
     if not are_args_valid(book, chapter):
-        return ("Invalid arguments", 400)
+        return ("Invalid arguments\n", 400)
     return parse_db_response(
         query_entire_chapter(
             book,
@@ -193,7 +198,7 @@ def slash_query_part(book, chapter):
             options), options, [book, chapter])
 
 
-@app.route('/versions')
+@app.route('/versions', methods=["GET"])
 def show_bible_versions():
     '''
     Just return a list of the bibles supported by this webapp.
@@ -217,7 +222,7 @@ def show_bible_versions():
 ''', 200)
 
 
-@app.route('/book_render')
+@app.route('/book_render', methods=["GET"])
 def render_book():
     '''
     start                middle                 end
@@ -250,7 +255,7 @@ def render_book():
         length = 20
 
     book = Book()
-    book_parts = book.get_book_parts()
+    book_parts = book.get_color()
     # I know this looks strange, but it allows for code re-use.
     page_length = width // 2
     final_book_top = "    " + book_parts['top_level'] * page_length + " " + book_parts['top_level'] * page_length + \
@@ -278,7 +283,7 @@ def render_book():
             final_bottom_multi_pg + final_bottom_final_pg, 200)
 
 
-@app.route('/help')
+@app.route('/help', methods=["GET"])
 def display_help():
 
     return '''
@@ -329,15 +334,31 @@ def config():
     2. Enable logging
     '''
     global config
-    if not path.exists('config/config.yaml'):
-        logging.critical(
+    global old_config
+    if not path.exists('.env'):
+        critical(
             "Cannot load DB config file, check README in GitHub repo")
         exit(1)
-    with open('config/config.yaml') as f:
-        config = safe_load(f)
+    dotenv_path = Path('.env')
+    load_dotenv(dotenv_path=dotenv_path)
+    try:
+        config = {
+            "db_host": getenv("DB_HOST"),
+            "db_dbname": getenv("MYSQL_DATABASE"),
+            "db_user": getenv("MYSQL_USER"),
+            "db_password": getenv("MYSQL_PASSWORD"),
+            "db_port": getenv("DB_PORT")
+        }
+        if None in config.values():
+            raise AssertionError
+    except AssertionError as ae:
+        critical("env files could not be pulled" + ae)
+        exit(1)
 
-    logging.basicConfig(
-        filename='bible.log',
+    if not path.exists('log'):
+        mkdir('log')
+    basicConfig(
+        filename='log/bible.log',
         filemode='a',
         format='%(asctime)s | Level:%(levelname)s | Logger:%(name)s | Src:%(filename)s.%(funcName)s@%(lineno)d | Msg:%(message)s',
         datefmt='%m/%d/%y %I:%M:%S %p %z (%Z)')
@@ -349,18 +370,29 @@ def connect_to_db() -> CMySQLConnection:
 
     try:
         conn = connect(
-            host=config['db']['host'],
-            database=config['db']['database'],
-            user=config['db']['user'],
-            password=config['db']['password'],
-            port=config['db']['port']
+            host=config['db_host'],
+            database=config["db_dbname"],
+            user=config["db_user"],
+            password=config["db_password"],
+            port=config["db_port"]
         )
 
         if conn.is_connected():
             return conn
+        # Try to connect to localhost if regular connection fails
+        else:
+            conn = connect(
+                host="localhost",
+                database=config["db_dbname"],
+                user=config["db_user"],
+                password=config["db_password"],
+                port=config["db_port"]
+            )
+        if conn.is_connected():
+            return conn
 
     except Error as e:
-        logging.critical(f"Cannot connect to DB! {e}")
+        critical(f"Cannot connect to DB! {e}")
         return None
 
 
@@ -449,7 +481,8 @@ def query_single_verse(
         options: dict) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.Failure.value, "Cannot connect to local DB")
+        return ReturnObject(Status.MajorFailure.value,
+                            "Cannot connect to local DB")
 
     # Set a default version if none is specified
     if "version" in args:
@@ -464,7 +497,7 @@ def query_single_verse(
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
-        logging.warning(f"Bible book not found! {ae}")
+        warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
 
     verse_id = "0" * (2 - len(book_id)) + book_id + "0" * \
@@ -473,8 +506,8 @@ def query_single_verse(
     db_cmd = set_query_bible_version(bible_version, "single")
     parameters = (verse_id,)
     if db_cmd is None:
-        logging.warning(f"Cannot find bible version {verse_id}.")
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
+        warning(f"Cannot find bible version {verse_id}.")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
     result = query_db(db_conn, db_cmd, parameters)
 
     if result.is_error():
@@ -482,10 +515,10 @@ def query_single_verse(
     try:
         return ReturnObject(Status.Success.value, result.get_content())
     except TypeError as te:
-        logging.warning(f"Invalid DB return {te}")
+        warning(f"Invalid DB return {te}")
         return ReturnObject(
             Status.MajorFailure,
-            "Invalid return from DB, please contact site admin")
+            "Invalid return from DB, please contact site admin\n")
 
 
 def query_multiple_verses_one_book(
@@ -513,7 +546,7 @@ def query_multiple_verses_one_book(
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
-        logging.warning(f"Bible book not found! {ae}")
+        warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
     # Pull out the starting and ending verse
@@ -536,7 +569,7 @@ def query_multiple_verses_one_book(
 
     db_cmd = set_query_bible_version(bible_version, "range")
     if db_cmd is None:
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
     parameters = (starting_verse_id, ending_verse_id)
 
     result = query_db(db_conn, db_cmd, parameters)
@@ -544,6 +577,7 @@ def query_multiple_verses_one_book(
     if result.is_error():
         return ReturnObject(Status.Failure, result.get_error())
     if result.get_content() == '':
+        warning(f"found missing verse {book} {chapter} {verse}")
         return ReturnObject(Status.Failure, f"Verse not found!\n")
     return result
 
@@ -569,7 +603,7 @@ def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict,
     try:
         assert book_id is not None and str.isnumeric(book_id)
     except AssertionError as ae:
-        logging.warning(f"Bible book not found! {ae}")
+        warning(f"Bible book not found! {ae}")
         return ReturnObject(Status.Failure.value, f"Book '{book}' not found\n")
 
     # %% is the escaped wildcard '%' in mysql.
@@ -578,7 +612,7 @@ def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict,
 
     db_cmd = set_query_bible_version(bible_version, "chapter")
     if db_cmd is None:
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
     parameters = (entire_verse,)
 
     result = query_db(db_conn, db_cmd, parameters)
@@ -614,7 +648,7 @@ def query_multiple_chapters(starting_book: str, starting_chapter: str,
         assert starting_book_id is not None and str.isnumeric(starting_book_id)
         assert ending_book_id is not None and str.isnumeric(ending_book_id)
     except AssertionError as ae:
-        logging.warning(f"Bible book not found! {ae}")
+        warning(f"Bible book not found! {ae}")
         return ReturnObject(
             Status.Failure.value, f"Book '{starting_book_id} {ending_book_id}' not found\n")
 
@@ -628,7 +662,7 @@ def query_multiple_chapters(starting_book: str, starting_chapter: str,
 
     db_cmd = set_query_bible_version(bible_version, "range")
     if db_cmd is None:
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
     parameters = (starting_verse_id, ending_verse_id)
 
     result = query_db(db_conn, db_cmd, parameters)
@@ -650,7 +684,7 @@ def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
                 return ReturnObject(Status.Success.value,
                                     ' '.join([str(verse[0]) for verse in text]))
         except Error as e:
-            logging.warning(f"Bible verse not found. {e}")
+            warning(f"Bible verse not found. {e}")
             return ReturnObject(Status.Failure.value, "Verse not found")
 
 
@@ -663,10 +697,11 @@ def parse_db_response(result: ReturnObject, options: dict,
     The color formatting will also be done here.
     '''
 
-    if result.get_error() == Status.Failure.value:
-        return (result.get_content(), 400)
-    elif result.get_error() == Status.MajorFailure.value:
-        return (result.get_content(), 500)
+    if result.is_error():
+        if result.get_error() == Status.Failure.value:
+            return (result.get_content(), 400)
+        elif result.get_error() == Status.MajorFailure.value:
+            return (result.get_content(), 500)
     if result.get_content() == '':
         return (f"Verse not found!\n", 400)
 
@@ -747,7 +782,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict,
         # (one for each side). Then 2 is taken to provide a space on each side.
         if 'width' in options and options['width'] // 2 > 2:
             width = options['width']
-            splitter = textwrap.TextWrapper(width=(options['width'] // 2 - 2))
+            splitter = TextWrapper(width=(options['width'] // 2 - 2))
         else:
             return ReturnObject(Status.Failure.value, "Invalid Width\n")
 
@@ -759,7 +794,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict,
     else:
         width = 80
         length = 20
-        splitter = textwrap.TextWrapper(width=38)
+        splitter = TextWrapper(width=38)
         book_parts = book.get_color()
 
     formatted_text = splitter.wrap(bible_verse)
@@ -788,7 +823,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict,
         try:
             if i < len(formatted_text):
                 text = formatted_text[i]
-                second_text_index = math.ceil(length / 2) + i
+                second_text_index = ceil(length / 2) + i
 
             if (i == (length // 2 - 1)):
                 if len(formatted_text[second_text_index]) >= page_width - 3:
@@ -822,7 +857,7 @@ def create_book(bible_verse: str, options: ImmutableMultiDict,
                     book_parts['middle_end'] + "\n")  # nopep8
 
         except Exception as e:
-            logging.exception(e)
+            exception(e)
             continue
 
     final_bottom_single_pg = book_parts['bottom_single_pg_start'] + book_parts['top_level'] * (page_width - 1) + \
@@ -845,3 +880,8 @@ def create_book(bible_verse: str, options: ImmutableMultiDict,
 
 if __name__ == "__main__":
     app.run()
+
+# if __name__ != "__main__":
+    # gunicorn_logger = getLogger('gunicorn.error')
+    # app.logger.handlers = gunicorn_logger.handlers
+    # app.logger.setLevel(gunicorn_logger.level)

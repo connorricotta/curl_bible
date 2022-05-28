@@ -19,16 +19,16 @@
 * - [X] bible.sh/?book=John&chapter=3&verse=15-20
 
  
-- [ ] **Entire Chapters**
+- [X] **Entire Chapters**
 * - [X] bible.sh/John:3
 * - [X] bible.sh/John/3
-* - [X] bible.sh/?book=John&verse=3
+* - [X] bible.sh/?book=John&chapter=3
 
 - [X] **Range of Chapters**
 * bible.sh/John:3:15:John:4:27 ^ \
 ^ a maximum amount of 2500 characters are returned
 
-- [ ] **Change version**
+- [X] **Change version**
 * - [X] bible.sh/John:3:15?version=YTL
 * - [X] bible.sh/book=John&chapter=3&verse=15:20&version=YLT
 ### Supports the following versions
