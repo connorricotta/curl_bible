@@ -65,7 +65,7 @@ class Book:
             "middle_end": f"{white}|{end}{gold}||{end}{brown}|{end}",
 
             "bottom_single_pg_start": f"{brown}|{end}{gold}||{end}{white}|{end}",
-            "bottom_single_pg_middle": " │ ",
+            "bottom_single_pg_middle": " | ",
             "bottom_single_pg_end": f"|{end}{gold}||{end}{brown}|{end}",
 
             "bottom_multi_pg_left": f"{brown}|{end}{gold}|/=",
@@ -112,6 +112,8 @@ class Options:
                 value = option.split("=")
                 if str.isnumeric(value[-1]) and int(value[-1]) >= 0:
                     self.length = int(value[-1])
+            if 'random' in option:
+                self.options_dict['random'] = 'random'
         self.options_dict['text_only'] = self.text_only
         self.options_dict['text_color'] = self.text_color
         self.options_dict['width'] = self.width

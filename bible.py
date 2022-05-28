@@ -3,8 +3,8 @@
 # Author: CR
 
 # Supports the following versions:
-#   - King James Version (KJV)
 #   - American Standard-ASV1901 (ASV)
+#   - King James Version (KJV)
 #   - Bible in Basic English (BBE)
 #   - World English Bible (WEB)
 #   - Young's Literal Translatiobible.sh/book=John&verse=3&verse=15,17,19:20n (YLT)
@@ -22,6 +22,7 @@ from sys import exit
 import logging
 from book_config import Book, Options
 from werkzeug.datastructures import ImmutableMultiDict
+from random import choice, randint
 
 # Global Vars
 app = Flask(__name__)
@@ -74,7 +75,7 @@ def argument_query():
         if '-' in verse:
             return parse_db_response(
                 query_multiple_verses_one_book(
-                    book, chapter, verse, request.args, options), options)
+                    book, chapter, verse, request.args, options), options, [book, chapter, verse])
 
         return parse_db_response(
             query_single_verse(
@@ -82,7 +83,7 @@ def argument_query():
                 chapter,
                 verse,
                 request.args,
-                options), options)
+                options), options, [book, chapter, verse])
 
     elif "book" in request.args and "chapter" in request.args:
         book = request.args['book']
@@ -94,7 +95,18 @@ def argument_query():
                 book,
                 chapter,
                 request.args,
-                options), options)
+                options), options, [book, chapter])
+
+    # Random option
+    elif "book" not in request.args and "chapter" not in request.args:
+        options = parse_options({'options': 'random'})
+        book = choice(['Matthew', 'Mark', 'Luke', 'John', 'Rev'])
+        chapter = str(randint(0, 10))
+        verse = f"{randint(0,5)}-{randint(6,10)}"
+
+        return parse_db_response(query_multiple_verses_one_book(book, chapter, verse, request.args, None),
+                                 options, [book, chapter, verse])
+
     logging.exception("Unknown error")
     return ("Unknown error", 400)
 
@@ -187,10 +199,11 @@ def show_bible_versions():
     Just return a list of the bibles supported by this webapp.
     Taken from the 'bible_version_key' table in the DB.
     '''
+
     return ('''
     All current supported versions of the Bible.
     Use the value in 'Version Name' to use that version of the bible, such as:
-        curl -L "bible.sh/John:3:15?version=BBE"
+        curl bible.ricotta.dev/John:3:15-19?version=BBE
 
     ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
     │ Version Name │ Language │ Name of version             │ Copyright     │
@@ -201,7 +214,7 @@ def show_bible_versions():
     │     WEB      │ English  │ World English Bible         │ Public Domain │
     │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
     ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
-    ''', 200)
+''', 200)
 
 
 @app.route('/book_render')
@@ -263,6 +276,50 @@ def render_book():
 
     return (final_book_top + final_book_middle + final_bottom_single_pg +
             final_bottom_multi_pg + final_bottom_final_pg, 200)
+
+
+@app.route('/help')
+def display_help():
+
+    return '''
+   ______           __   ____  _ __    __
+  / ____/_  _______/ /  / __ )(_) /_  / /__
+ / /   / / / / ___/ /  / __  / / __ \\/ / _ \\
+/ /___/ /_/ / /  / /  / /_/ / / /_/ / /  __/
+\\____/\\__,_/_/  /_/  /_____/_/_.___/_/\\___/
+
+Curl Bible - Easily access the bible through curl (HTTPie is also supported)
+
+Supports the following query types (GET and POST):
+    • curl bible.ricotta.dev/John:3:15-19
+    • curl bible.ricotta.dev/John/3/15-19
+    • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
+    • curl bible.ricotta.dev/John:3:15:John:4:15
+
+The following options are supported:
+    • 'l' or 'length' - the number of lines present in the book
+        default value: 20
+
+    • 'w' or 'width' - how many characters will be displayed in each line of the book.
+        default value: 80
+
+    • 'nc' or 'no_color' - display the returned book without terminal colors
+        default value: False
+
+    • 'c' or 'color' - display the returned book with terminal colors
+        default value: True
+
+    • 't' or 'text' - only returned the unformatted text.
+
+    • 'v' or 'version' - choose which version of the bible to use.
+        Default value: ASV (American Standard Version)
+        Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
+
+    These options can be combined:
+        curl bible.ricotta.dev/John:3:15:John:4:15?options=l=50,w=85,nc,v=BBE
+
+Check the README on GitHub for full information: https://github.com/connorricotta/curl_bible
+'''
 
 
 @app.before_first_request
@@ -619,6 +676,9 @@ def parse_db_response(result: ReturnObject, options: dict,
     output = create_book(result.content, options, queried_verse)
     if output.is_error():
         return (output.get_content(), 400)
+    elif options is not None and 'random' in options:
+        return (output.get_content()[
+                0] + "\nTry 'curl bible.ricotta.dev/help' for more information.\n", 200)
     else:
         return (output.get_content()[0], 200)
 
