@@ -12,13 +12,13 @@ Curl Bible
 
 ![Screenshot 1](https://cdn.discordapp.com/attachments/775917117290709042/981019274560823346/unknown.png "Our logo")
 
-Read passages from the bible using curl (or any CLI HTTP tool)! All output to the terminal colored using [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
+Read passages from the bible using curl or HTTPie! All output to the terminal colored using [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
 
 ## Examples:
 ```sh
-  $ curl bible.ricotta.dev/John:3:15&options=length=15,width=10
+  $ curl "bible.ricotta.dev/John:3:15&options=length=15,width=10"
 
-  $ curl bible.ricotta.dev/?book=John&chapter=3&verse=15-19
+  $ curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-19"
 
   $ curl "bible.ricotta.dev/John/3/15-19&version=YLT&options=text"
 ```
@@ -90,17 +90,17 @@ $ curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-20"
 ```
 ### These endpoints can be queried with the following formats.
 
-| **Query Types**       | **Examples**                                       |
-|-----------------------|----------------------------------------------------|
-| **Single Verse**      | `curl bible.ricotta.dev/John:3:15`                        |
-|                       | `curl bible.ricotta.dev/John/3/15`                        |
-|                       | `curl bible.ricotta.dev/?book=John&chapter=3&verse=15`    |
-| **Multiple Verses**   | `curl bible.ricotta.dev/John:3:15-20`                     |
-|                       | `curl bible.ricotta.dev/John/3/15-20`                     |
-|                       | `curl bible.ricotta.dev/?book=John&chapter=3&verse=15-20` |
-| **Entire Chapters**   | `curl bible.ricotta.dev/John:3`                          |
-|                       | `curl bible.ricotta.dev/John/3`                          |
-|                       | `curl bible.ricotta.dev/?book=John&chapter=3 `            |
+| **Query Types**       | **Examples**                                                 |
+|-----------------------|------------------------------------------------------------- |
+| **Single Verse**      | `curl bible.ricotta.dev/John:3:15`                           |
+|                       | `curl bible.ricotta.dev/John/3/15`                           |
+|                       | `curl "bible.ricotta.dev/?book=John&chapter=3&verse=15"`     |
+| **Multiple Verses**   | `curl bible.ricotta.dev/John:3:15-20`                        |
+|                       | `curl bible.ricotta.dev/John/3/15-20`                        |
+|                       | `curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-20"`  |
+| **Entire Chapters**   | `curl bible.ricotta.dev/John:3`                              |
+|                       | `curl bible.ricotta.dev/John/3`                              |
+|                       | `curl "bible.ricotta.dev/?book=John&chapter=3"`              |
 
 ## Options
 The length, width, and output color of the returned book can be controlled by appending `options=` or `o=` to the query. The full list of options are:
