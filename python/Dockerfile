@@ -5,6 +5,6 @@ WORKDIR /usr/src/app
 COPY . .
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN chmod +x start.sh
+RUN chmod +x docker-start.sh
 
-CMD ["./start.sh"]
+CMD ["./docker-start.sh"]

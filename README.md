@@ -24,7 +24,7 @@ Read passages from the bible using curl (or any CLI HTTP tool)! All output to th
 ```
 
 
-## Installation
+## Installation (Docker)
 1. Install [Docker-compose](https://docs.docker.com/compose/install/)
 2. Run the configuration script to generate a random password for both the root and regular database users.
 ```sh
@@ -36,6 +36,43 @@ $ ./install.sh
 ```sh
 $ docker-compose up -d
 ```
+<details><summary><b>Show manual installation instructions</b></summary>
+
+1. Ensure [Python3](https://www.python.org/downloads/),  [pip](https://pip.pypa.io/en/stable/installation/), and [pipenv](https://pypi.org/project/pipenv/) are installed.
+2. Change directory into the python directory and create a pipenv environment.
+```sh
+$ cd python
+$ pipenv shell
+```
+3. Start up the backend server with this command (more options can be found [here](https://docs.gunicorn.org/en/stable/settings.html?highlight=logging#logging))
+```sh
+$ gunicorn --bind 0.0.0.0:10000 wsgi:app --log-level warning --error-logfile error.log --capture-output --log-config logging.conf
+```
+4. Ensure that [mariadb](https://www.digitalocean.com/community/tutorials/how-to-install-mariadb-on-ubuntu-20-04) is installed and you are able to connect to it.
+5. Open up mariadb and enter the following commands 
+> The words in {braces} should be replaced with different values 
+```sh
+CREATE USER 'bibleman'@'localhost' IDENTIFIED BY '{newpassword}'
+CREATE DATABASE IF NOT EXISTS bible;
+GRANT ALL PRIVILEGES ON bible.* TO 'bibleman'@'localhost';
+FLUSH PRIVILEGES;
+exit;
+```
+6. Import the SQL dump into the bible database.
+```sh
+sudo mysql -u root -p bible < {path to directory}/curl_bible/sql/bible-mysql.sql
+```
+7. Modify python/.env to make sure MYSQL_PASSWORD and DB_PORT match your current configuration.
+```sh
+MYSQL_ROOT_USER=root
+MYSQL_ROOT_PASSWORD={changeme123}
+MYSQL_USER=bibleman
+MYSQL_PASSWORD={changemealso}
+MYSQL_DATABASE=bible
+DB_HOST=bible_db
+DB_PORT=3306
+```
+</details>
 
 ## Query Options
 ### There are three endpoints that can be used to query the database:

@@ -22,7 +22,6 @@ from textwrap import TextWrapper
 from dotenv import load_dotenv
 from flask import Flask, request
 from mysql.connector import Error, connect
-from mysql.connector.connection_cext import CMySQLConnection
 from werkzeug.datastructures import ImmutableMultiDict
 
 from book_config import Book, Options
@@ -364,7 +363,7 @@ def config():
         datefmt='%m/%d/%y %I:%M:%S %p %z (%Z)')
 
 
-def connect_to_db() -> CMySQLConnection:
+def connect_to_db():
     """ Connect to MySQL database """
     conn = None
 
@@ -454,7 +453,7 @@ def set_query_bible_version(book_version: str, query_type: str) -> str:
 
 def bookname_to_bookid(
         book: str,
-        database_connection: CMySQLConnection) -> str:
+        database_connection) -> str:
     '''
     Convert a book name into the ID of the book (number in bible)
     so it can be queried.
@@ -674,7 +673,7 @@ def query_multiple_chapters(starting_book: str, starting_chapter: str,
     return result
 
 
-def query_db(db_conn: CMySQLConnection, db_cmd: str, parameters: tuple):
+def query_db(db_conn, db_cmd: str, parameters: tuple):
     with db_conn.cursor(buffered=True) as cursor:
         try:
             cursor.execute(db_cmd, parameters)

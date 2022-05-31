@@ -8,7 +8,7 @@ services:
     volumes:
       - ./sql:/docker-entrypoint-initdb.d
     env_file:
-        - ./docker/.env
+        - ./python/.env
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
@@ -21,12 +21,11 @@ services:
     image: curl_bible
     build:
       # Allows .env to be used by both Docker-Compose and the Python image
-      context: ./docker
+      context: ./python
     hostname: "curl_bible"
     container_name: curl_bible
     ports:
       - 10000:10000
-      - 5001:5001
     volumes:
       # Allow logs to be viewed without entering the container.
       - ./logs:/usr/src/app/logs

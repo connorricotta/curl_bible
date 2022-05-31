@@ -5,9 +5,8 @@ lib
 *.log
 config
 __pycache__/
-*test.py
+*test*.*
 .vscode/
-textwrap_test.py
 *.cfg
 # The following was taken from:
 # https://github.com/github/gitignore/blob/main/Python.gitignore
