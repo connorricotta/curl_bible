@@ -30,5 +30,4 @@ services:
     volumes:
       # Allow logs to be viewed without entering the container.
       - ./logs:/usr/src/app/logs
-      - ./docker:/usr/src/app/backup
     restart: always

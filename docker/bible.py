@@ -9,23 +9,23 @@
 #   - World English Bible (WEB)
 #   - Young's Literal Translation (YLT)
 
-# Imports
+from enum import Enum
+from logging import basicConfig, critical, exception, getLogger, warning
+
 from math import ceil
+from os import getenv, mkdir, path
+from pathlib import Path
+from random import choice, randint
+from sys import exit
 from textwrap import TextWrapper
+
+from dotenv import load_dotenv
 from flask import Flask, request
 from mysql.connector import Error, connect
-from enum import Enum
 from mysql.connector.connection_cext import CMySQLConnection
-from yaml import safe_load
-from os import path, mkdir, getenv
-from sys import exit
-from logging import exception, critical, warning, basicConfig, getLogger
-from book_config import Book, Options
 from werkzeug.datastructures import ImmutableMultiDict
-from random import choice, randint
-from pathlib import Path
-from dotenv import load_dotenv
 
+from book_config import Book, Options
 
 # Global Vars
 app = Flask(__name__)
@@ -213,7 +213,7 @@ def show_bible_versions():
     ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
     │ Version Name │ Language │ Name of version             │ Copyright     │
     ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
-    │     ASV      │ English  │ American Standard (ASV1901) │ Public Domain │
+    │     ASV      │ English  │ American Standard Version   │ Public Domain │
     │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
     │     KJV      │ English  │ King James Version          │ Public Domain │
     │     WEB      │ English  │ World English Bible         │ Public Domain │
