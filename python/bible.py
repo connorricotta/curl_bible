@@ -22,7 +22,6 @@ from textwrap import TextWrapper
 from dotenv import load_dotenv
 from flask import Flask, request
 from mysql.connector import Error, connect
-from werkzeug.datastructures import ImmutableMultiDict
 
 from book_config import Book, Options
 
@@ -103,7 +102,8 @@ def argument_query():
 
     # Random option
     elif "book" not in request.args and "chapter" not in request.args:
-        options = parse_options({'options': 'random'})
+        # options = parse_options({'options': 'random'})
+        options['random'] = 'random'
         book = choice(['Matthew', 'Mark', 'Luke', 'John', 'Rev'])
         chapter = str(randint(1, 10))
         verse = f"{randint(1,5)}-{randint(6,10)}"
@@ -208,6 +208,9 @@ def show_bible_versions():
     All current supported versions of the Bible.
     Use the value in 'Version Name' to use that version of the bible, such as:
         curl bible.ricotta.dev/John:3:15-19?version=BBE
+        curl bible.ricotta.dev/John:3:15-19?options=version=BBE
+    
+    King James Version (KVJ) is the default version
 
     ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
     │ Version Name │ Language │ Name of version             │ Copyright     │
@@ -395,13 +398,11 @@ def connect_to_db():
         return None
 
 
-def parse_options(options: ImmutableMultiDict):
+def parse_options(options):
     if options is None:
         return None
-    if 'o' in options:
-        return Options(options['o']).get_options_dict()
-    elif 'options' in options:
-        return Options(options['options']).get_options_dict()
+    else:
+        return Options(options).get_options_dict()
 
 
 def set_query_bible_version(book_version: str, query_type: str) -> str:
@@ -476,7 +477,7 @@ def query_single_verse(
         book: str,
         chapter: str,
         verse: str,
-        args: ImmutableMultiDict,
+        args,
         options: dict) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
@@ -524,7 +525,7 @@ def query_multiple_verses_one_book(
         book: str,
         chapter: str,
         verse: str,
-        args: ImmutableMultiDict,
+        args,
         options: dict) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
@@ -581,7 +582,7 @@ def query_multiple_verses_one_book(
     return result
 
 
-def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict,
+def query_entire_chapter(book: str, chapter: str, args,
                          options: dict):
     db_conn = connect_to_db()
     if db_conn is None:
@@ -624,7 +625,7 @@ def query_entire_chapter(book: str, chapter: str, args: ImmutableMultiDict,
 
 
 def query_multiple_chapters(starting_book: str, starting_chapter: str,
-                            starting_verse: str, ending_book: str, ending_chapter: str, ending_verse: str, args: ImmutableMultiDict,
+                            starting_verse: str, ending_book: str, ending_chapter: str, ending_verse: str, args,
                             options: dict):
     db_conn = connect_to_db()
     if db_conn is None:
@@ -745,7 +746,7 @@ def are_args_valid(book: str, chapter: str, verse='0') -> bool:
     return False
 
 
-def create_book(bible_verse: str, options: ImmutableMultiDict,
+def create_book(bible_verse: str, options,
                 request_verse: dict):
     '''
     start                middle                 end

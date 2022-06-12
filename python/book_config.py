@@ -92,7 +92,16 @@ class Options:
     options_dict = {}
 
     def __init__(self, options: ImmutableMultiDict) -> None:
-        options_list = options.split(",")
+        if 'o' in options:
+            options_list = options['o'].split(",")
+        elif 'options' in options:
+            options_list = options['options'].split(",")
+        # Allow options to be passed in individually
+        else:
+            options_list = []
+            for (key, value) in options.items():
+                if key != 'options' and key != 'o':
+                    options_list.append(f'{key}={value}')
         for option in options_list:
             if option in ['t', 'text']:
                 self.text_only = True

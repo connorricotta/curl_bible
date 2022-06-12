@@ -10,6 +10,13 @@ __pycache__/
 *.cfg
 pyvenv.cfg
 .pre-commit-config.yaml
+python/curl_bible
+README_test.md
+README_old.md
+docker/.env_old
+.env
+
+
 # The following was taken from:
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 # Byte-compiled / optimized / DLL files
@@ -165,6 +172,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-README_test.md
-README_old.md
-docker/.env_old
