@@ -78,7 +78,10 @@ def argument_query():
         if '-' in verse:
             return parse_db_response(
                 query_multiple_verses_one_book(
-                    book, chapter, verse, request.args, options), options, [book, chapter, verse])
+                    book, chapter, verse, request.args, options),
+                options,
+                [book, chapter, verse]
+            )
 
         return parse_db_response(
             query_single_verse(

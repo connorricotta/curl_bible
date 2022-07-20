@@ -109,7 +109,7 @@ class Options:
                 self.text_color = False
             if option in ['c', 'color']:
                 self.text_color = True
-            if 'v' in option or 'version' in option:
+            if option in ['v', 'version'] and option != "verse":
                 version = option.split("=")[-1]
                 self.version = version
                 self.options_dict['version'] = self.version
