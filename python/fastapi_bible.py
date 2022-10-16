@@ -1,5 +1,8 @@
 from re import search
-from fastapi import FastAPI, Response, status
+from typing import Union
+
+from fastapi import Depends, FastAPI, Path, Query, Response, status
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
@@ -11,6 +14,23 @@ SINGLE_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
 MULTI_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
 # Matches 'John:3:1-2','Psalms:119:170-176'
 SINGLE_SEMICOLON_DASH_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
+
+
+class Options(BaseModel):
+    def __init__(self, **data):
+        super().__init__(
+            color=data.get("nc") or data.get("color"),
+            text_only=data.get("t") or data.get("text_only"),
+            version=data.get("v") or data.get("version"),
+            length=data.get("l") or data.get("length"),
+            width=data.get("w") or data.get("width"),
+        )
+
+    color: Union[bool, str, None]
+    text_only: Union[bool, str, None]
+    version: str | None = Query(min_length=3, max_length=3)
+    length: int | None = Path(gt=0, default=20)
+    width: int | None = Path(gt=0, default=80)
 
 
 @app.get("/")
@@ -44,22 +64,25 @@ async def parse_semicolon_quote(quote: str):
 
 
 @app.get("/{book}/{chapter}/{verse}")
-async def parse_single_slash_quote(book: str, chapter: int, verse: str):
+async def parse_single_slash_quote(
+    book: str = Query(default=..., min_length=4, max_length=20),
+    chapter: int = Field(default=..., ge=0, lt=1000),
+    verse: str = Query(default=..., min_length=1, max_length=7),
+):
     verse_num = validate_verses([verse])
     if verse_num != 0:
         return Response(
             content=f"verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-
     return {"book": book, "chapter": chapter, "verse": verse}
 
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
 async def parse_multi_slash_quote(
     book_1: str,
-    chapter_1: int,
     book_2: str,
+    chapter_1: int,
     chapter_2: int,
     verse_1: str,
     verse_2: str,
@@ -67,7 +90,7 @@ async def parse_multi_slash_quote(
     verse_num = validate_verses([verse_1, verse_2])
     if verse_num != 0:
         return Response(
-            content=f"verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
+            content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     return {
