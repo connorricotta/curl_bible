@@ -3,45 +3,23 @@ from typing import Union
 
 from fastapi import Depends, FastAPI, Path, Query, Response, status
 from pydantic import BaseModel, Field
+from starlette import requests
+
+from options import *
 
 app = FastAPI()
 
-# Matches '3','999','1-999','999-1'
-VERSE_REGEX = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
-# Matches 'John:3:5','Psalms:119:175'
-SINGLE_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-# Matches 'John:3:5:John:4:3', 'Numbers:7:1:Psalms:119:175'
-MULTI_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-# Matches 'John:3:1-2','Psalms:119:170-176'
-SINGLE_SEMICOLON_DASH_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
-
-
-class Options(BaseModel):
-    def __init__(self, **data):
-        super().__init__(
-            color=data.get("nc") or data.get("color"),
-            text_only=data.get("t") or data.get("text_only"),
-            version=data.get("v") or data.get("version"),
-            length=data.get("l") or data.get("length"),
-            width=data.get("w") or data.get("width"),
-        )
-
-    color: Union[bool, str, None]
-    text_only: Union[bool, str, None]
-    version: str | None = Query(min_length=3, max_length=3)
-    length: int | None = Path(gt=0, default=20)
-    width: int | None = Path(gt=0, default=80)
-
 
 @app.get("/")
-async def parse_arguments_quote(book: str, chapter: int, verse: str):
-    verse_num = validate_verses([verse])
-    if verse_num != 0:
-        return Response(
-            content=f"verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
-    return {"book": book, "chapter": chapter, "verse": verse}
+async def parse_arguments_quote(
+    request: requests.Request,
+    book: str = Query(default=..., max_length=25),
+    chapter: int = Query(default=..., ge=0, le=50),
+    verse: str = Query(default=..., regex=VERSE_REGEX),
+    options: Options = Depends(),
+):
+    options.update(request)
+    return {"book": book, "chapter": chapter, "verse": verse, "options": options}
 
 
 @app.get("/{quote}")
@@ -66,8 +44,8 @@ async def parse_semicolon_quote(quote: str):
 @app.get("/{book}/{chapter}/{verse}")
 async def parse_single_slash_quote(
     book: str = Query(default=..., min_length=4, max_length=20),
-    chapter: int = Field(default=..., ge=0, lt=1000),
-    verse: str = Query(default=..., min_length=1, max_length=7),
+    chapter: int = Query(default=..., ge=0, lt=1000),
+    verse: str = Query(default=..., regex=VERSE_REGEX),
 ):
     verse_num = validate_verses([verse])
     if verse_num != 0:
@@ -80,12 +58,12 @@ async def parse_single_slash_quote(
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
 async def parse_multi_slash_quote(
-    book_1: str,
-    book_2: str,
-    chapter_1: int,
-    chapter_2: int,
-    verse_1: str,
-    verse_2: str,
+    book_1: str = Query(default=..., min_length=4, max_length=25),
+    book_2: str = Query(default=..., min_length=4, max_length=25),
+    chapter_1: int = Query(default=..., le=25),
+    chapter_2: int = Query(default=..., le=25),
+    verse_1: str = Query(default=..., regex=VERSE_REGEX),
+    verse_2: str = Query(default=..., regex=VERSE_REGEX),
 ):
     verse_num = validate_verses([verse_1, verse_2])
     if verse_num != 0:
