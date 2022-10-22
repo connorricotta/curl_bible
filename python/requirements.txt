@@ -18,7 +18,7 @@ mysql-connector-python==8.0.29
 nodeenv==1.6.0
 platformdirs==2.5.2
 pre-commit==2.19.0
-protobuf==3.20.1
+protobuf==3.20.2
 pycodestyle==2.8.0
 pydantic==1.10.2
 python-dotenv==0.20.0
