@@ -129,6 +129,36 @@ class Options(BaseModel):
         }
 
 
+class Query(Enum):
+    Single = 0
+    Multiple = 1
+
+
+class Status(Enum):
+    Success = 0
+    Failure = 401
+    MajorFailure = 501
+
+
+class ReturnObject:
+    def __init__(self, status: int, content: str) -> None:
+        self.status = status
+        self.content = content
+
+    def get_content(self):
+        return self.content
+
+    def get_error(self):
+        return self.status
+
+    def is_error(self):
+        # Define an error status as having a value of 1
+        # Otherwise, return success
+        if not isinstance(self.status, int):
+            return self.status.value % 2 == 1
+        return self.status % 2 == 1
+
+
 def is_bool(bool_test):
     if type(bool_test) == bool:
         return bool_test
