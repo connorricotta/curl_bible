@@ -188,6 +188,7 @@ $ curl "bible.ricotta.dev?book=John&chapter=3&v=ylt"
 $ curl bible.ricotta.dev/versions
 ```
 
-<!-- <details><summary><b>Show full endpoints</b></summary> -->
+### TODO
 
-<!-- </details> -->
+- Always return full chapter name.
+- Improve separate DB setup.

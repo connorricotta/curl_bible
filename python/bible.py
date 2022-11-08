@@ -213,7 +213,7 @@ def show_bible_versions():
         curl bible.ricotta.dev/John:3:15-19?version=BBE
         curl bible.ricotta.dev/John:3:15-19?options=version=BBE
     
-    King James Version (KVJ) is the default version
+    American Standard Version (ASV) is the default version
 
     ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
     │ Version Name │ Language │ Name of version             │ Copyright     │
@@ -428,13 +428,13 @@ def set_query_bible_version(book_version: str, query_type: str) -> str:
         elif query_type == "chapter":
             return "SELECT t from t_bbe where id like %s"
 
-    elif book_version in ["t_jkv", "JVK"]:
+    elif book_version in ["t_kjv", "KJV"]:
         if query_type == "single":
-            return "SELECT t from t_jvk where id=%s"
+            return "SELECT t from t_kjv where id=%s"
         elif query_type == "range":
-            return "SELECT t from t_jvk where id between %s and %s"
+            return "SELECT t from t_kjv where id between %s and %s"
         elif query_type == "chapter":
-            return "SELECT t from t_jvk where id like %s"
+            return "SELECT t from t_kjv where id like %s"
 
     elif book_version in ["t_web", "WEB"]:
         if query_type == "single":
