@@ -1,9 +1,9 @@
 # Standard Library Imports
-from enum import Enum
 from logging import basicConfig, critical, exception, warning
 from os import getenv, mkdir, path, stat
 from pathlib import Path
 from re import search
+
 
 # Module Imports
 from dotenv import load_dotenv
@@ -15,7 +15,6 @@ from starlette import requests
 
 # Sub-directory imports
 from config import *
-
 
 app = FastAPI()
 
@@ -74,17 +73,26 @@ async def startup():
 @app.get("/")
 async def parse_arguments_quote(
     request: requests.Request,
-    book: str = Query(default=..., max_length=25),
+    book: str = Query(max_length=25),
     chapter: int = Query(default=..., ge=0, le=50),
-    verse: str = Query(default=..., regex=VERSE_REGEX),
+    verse: str = Query(regex=VERSE_REGEX),
     options: Options = Depends(),
 ):
     options.update(request)
+    verse_num = validate_verses([verse])
+    if verse_num != 0:
+        return Response(
+            content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
     return {"book": book, "chapter": chapter, "verse": verse, "options": options}
 
 
 @app.get("/{quote}")
-async def parse_semicolon_quote(quote: str):
+async def parse_semicolon_quote(
+    request: requests.Request, quote: str, options: Options = Depends()
+):
+    options.update(request)
     if search(SINGLE_SEMICOLON_REGEX, quote) is None:
         if search(SINGLE_SEMICOLON_DASH_REGEX, quote) is None:
             if search(MULTI_SEMICOLON_REGEX, quote) is None:
@@ -104,17 +112,29 @@ async def parse_semicolon_quote(quote: str):
 
 @app.get("/{book}/{chapter}/{verse}")
 async def parse_single_slash_quote(
+    request: requests.Request,
     book: str = Query(default=..., min_length=4, max_length=20),
     chapter: int = Query(default=..., ge=0, lt=1000),
     verse: str = Query(default=..., regex=VERSE_REGEX),
+    options: Options = Depends(),
 ):
+    options.update(request)
     verse_num = validate_verses([verse])
     if verse_num != 0:
         return Response(
-            content=f"verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
+            content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-    return {"book": book, "chapter": chapter, "verse": verse}
+    response = query_single_verse(book, chapter, verse, options)
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
+
+    book = parse_db_response(
+        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
+    )
+    return PlainTextResponse(content=book.get_content())
+
+    # return {"book": book, "chapter": chapter, "verse": verse, "options": options}
 
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
@@ -252,29 +272,41 @@ def connect_to_db():
             password=DB_CONFIG["db_password"],
             port=DB_CONFIG["db_port"],
         )
-
         if conn.is_connected():
             return conn
-        # Try to connect to localhost if regular connection fails
-        else:
-            conn = connect(
-                host="localhost",
-                database=DB_CONFIG["db_dbname"],
-                user=DB_CONFIG["db_user"],
-                password=DB_CONFIG["db_password"],
-                port=DB_CONFIG["db_port"],
-            )
-        if conn.is_connected():
-            return conn
-        else:
-            raise Exception("Could not connect to DB")
-
     except Error as e:
+        critical(f"Cannot connect to DB! Attempting to connect on localhost {e}")
+
+    # Try to connect to localhost if regular connection fails
+    try:
+        conn = connect(
+            host="localhost",
+            database=DB_CONFIG["db_dbname"],
+            user=DB_CONFIG["db_user"],
+            password=DB_CONFIG["db_password"],
+            port=DB_CONFIG["db_port"],
+        )
+        if conn.is_connected():
+            return conn
+    except Exception as e:
         critical(f"Cannot connect to DB! {e}")
         return None
 
 
-def query_db(db_conn, db_cmd: str, parameters: tuple):
+def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
+    """
+    Run the DB command and return all data.
+
+    Args:
+        db_conn:            MySQL connector object.
+        db_cmd (str):       The command to run with % for commands.
+        parameters(tuple):  The parameters to substute into the db_cmd
+        options (Options):  The options list for the request (will support verse numbers later)
+    Returns:
+        A long string containing the bible verse.
+    Raises:
+        None
+    """
     with db_conn.cursor(buffered=True) as cursor:
         try:
             cursor.execute(db_cmd, parameters)
@@ -282,7 +314,7 @@ def query_db(db_conn, db_cmd: str, parameters: tuple):
                 text = cursor.fetchall()
                 # Combine all returned fields into a single string.
                 return ReturnObject(
-                    Status.Success.value, " ".join([str(verse[0]) for verse in text])
+                    Status.Success, " ".join([str(verse[0]) for verse in text])
                 )
         except Error as e:
             warning(f"Bible verse not found. {e}")
@@ -344,7 +376,10 @@ def bookname_to_bookid(book: str, database_connection) -> str:
     db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
     db_parameters = (book,)
     result = query_db(
-        db_conn=database_connection, db_cmd=db_cmd, parameters=db_parameters
+        db_conn=database_connection,
+        db_cmd=db_cmd,
+        parameters=db_parameters,
+        options=None,
     )
     if result.is_error():
         return (result.get_error(),)
@@ -354,48 +389,70 @@ def bookname_to_bookid(book: str, database_connection) -> str:
 
 
 def query_single_verse(
-    book: str, chapter: str, verse: str, args, options: dict
+    book: str, chapter: int, verse: str, options: Options
 ) -> ReturnObject:
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure.value, "Cannot connect to local DB")
-
-    # Set a default version if none is specified
-    if "version" in args:
-        bible_version = args["version"]
-    elif options is not None and "version" in options:
-        bible_version = options["version"]
-    else:
-        bible_version = "t_asv"
+        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
 
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
-    if (book_id is not None) and (str.isnumeric(book_id)):
+    if book_id == "" and not str.isnumeric(book_id):
         warning(f"Bible book not found!")
         return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
-
+    # fmt: off
     verse_id = (
-        "0" * (2 - len(book_id))
-        + book_id
-        + "0" * (3 - len(chapter))
-        + chapter
-        + "0" * (3 - len(verse))
-        + verse
+        "0" * (2 - len(book_id)) + book_id +
+        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(verse)) + verse
     )
-
-    db_cmd = set_query_bible_version(bible_version, "single")
+    # fmt: on
+    db_cmd = set_query_bible_version(options.version, "single")
     parameters = (verse_id,)
     if db_cmd is None:
         warning(f"Cannot find bible version {verse_id}.")
         return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
-    result = query_db(db_conn, db_cmd, parameters)
+    result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
-        return ReturnObject(Status.Failure.value, result.get_error())
+        return ReturnObject(Status.Failure, result.get_error())
     try:
-        return ReturnObject(Status.Success.value, result.get_content())
+        return ReturnObject(Status.Success, result.get_content())
     except TypeError as te:
         warning(f"Invalid DB return {te}")
         return ReturnObject(
             Status.MajorFailure, "Invalid return from DB, please contact site admin\n"
         )
+
+
+def parse_db_response(
+    result: ReturnObject, user_options: Options, queried_verse: dict
+) -> tuple:
+    """
+    After querying the DB and getting a ResponseObject, this method parses it into a
+    proper response for FastAPI
+    This returns a tuple that can be returned to the client.
+    The color formatting will also be done here.
+    """
+
+    if result.is_error():
+        return result
+    if result.get_content() == "":
+        return ReturnObject(status=Status.Failure, content="Verse not found!")
+    if user_options.text_only:
+        return result.get_content()
+
+    return create_book(
+        bible_verse=result.get_content(),
+        user_options=user_options,
+        request_verse=queried_verse,
+    )
+
+    # elif options is not None and "random" in options:
+    #     return (
+    #         book.get_content()[0]
+    #         + "\nTry 'curl bible.ricotta.dev/help' for more information.\n",
+    #         200,
+    #     )
+    # else:
+    #     return (book.get_content()[0], 200)
