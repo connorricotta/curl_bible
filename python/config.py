@@ -63,6 +63,7 @@ class Options(BaseModel):
     length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
     width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
     options: str | None
+    random: bool | None
 
     @validator("options")
     def contains_options(cls, user_options, values):
@@ -222,7 +223,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
     elif len(request_verse) == 6:
         formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
     else:
-        formatted_verse = " ".join(request_verse)
+        formatted_verse = "".join(request_verse)
     spaced_verse = (page_width - len(formatted_verse)) // 2
     formatted_text.insert(0, "")
     formatted_text.insert(

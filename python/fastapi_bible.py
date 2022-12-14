@@ -3,7 +3,7 @@ from logging import basicConfig, critical, exception, warning
 from os import getenv, mkdir, path, stat
 from pathlib import Path
 from re import search
-
+from random import choice, randint
 
 # Module Imports
 from dotenv import load_dotenv
@@ -71,6 +71,27 @@ async def startup():
 
 
 @app.get("/")
+async def random():
+    # return a random bible verse
+    book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
+    chapter = str(randint(1, 10))
+    verse = f"{randint(1,5)}"
+    options = Options(random=True)
+    response, book = query_single_verse(book, chapter, verse, options)
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
+
+    full_book = parse_db_response(
+        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
+    )
+
+    return PlainTextResponse(
+        content=full_book.get_content()
+        + "\nTry 'curl bible.ricotta.dev/help' for more information.\n"
+    )
+
+
+@app.get("/")
 async def parse_arguments_quote(
     request: requests.Request,
     book: str = Query(max_length=25),
@@ -96,11 +117,6 @@ async def parse_semicolon_quote(
     if search(SINGLE_SEMICOLON_REGEX, quote) is None:
         if search(SINGLE_SEMICOLON_DASH_REGEX, quote) is None:
             if search(MULTI_SEMICOLON_REGEX, quote) is None:
-                """
-                A more 'proper' HTTPException or JSONResponse is not raised because
-                this application will be used in the terminal by humans,
-                and so must use plaintext responses.
-                """
                 return Response(
                     content="Value is not a proper quote. Please refer to bible.ricotta.dev/help\n",
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -125,16 +141,16 @@ async def parse_single_slash_quote(
             content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','3-19'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-    response = query_single_verse(book, chapter, verse, options)
+    # Query the DB
+    response, book = query_single_verse(book, chapter, verse, options)
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"
 
-    book = parse_db_response(
+    # Render the book with all specified options
+    full_book = parse_db_response(
         result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
     )
-    return PlainTextResponse(content=book.get_content())
-
-    # return {"book": book, "chapter": chapter, "verse": verse, "options": options}
+    return PlainTextResponse(content=full_book.get_content())
 
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
@@ -160,27 +176,6 @@ async def parse_multi_slash_quote(
         "verse_1": verse_1,
         "verse_2": verse_2,
     }
-
-
-def validate_verses(verse_list: list) -> int:
-    """
-    Iterates through each verse to make sure it matches the verse regex.
-
-    Args:
-        verse_list (list): A list containing each verse passed to the method.
-    Returns:
-        An int indicating which verse (if any) is invalid.
-            0 - All Verses valid
-            1 - Verse 1 Invalid
-            2 - Verse 2 Invalid
-    Raises:
-        None
-    """
-    for count, verse in enumerate(verse_list):
-        if search(VERSE_REGEX, verse) is None:
-            return count + 1
-    else:
-        return 0
 
 
 @app.get("/versions")
@@ -260,6 +255,27 @@ Check the README on GitHub for full information: https://github.com/connorricott
     )
 
 
+def validate_verses(verse_list: list) -> int:
+    """
+    Iterates through each verse to make sure it matches the verse regex.
+
+    Args:
+        verse_list (list): A list containing each verse passed to the method.
+    Returns:
+        An int indicating which verse (if any) is invalid.
+            0 - All Verses valid
+            1 - Verse 1 Invalid
+            2 - Verse 2 Invalid
+    Raises:
+        None
+    """
+    for count, verse in enumerate(verse_list):
+        if search(VERSE_REGEX, verse) is None:
+            return count + 1
+    else:
+        return 0
+
+
 def connect_to_db():
     """Connect to MySQL database"""
     conn = None
@@ -303,7 +319,8 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
         parameters(tuple):  The parameters to substute into the db_cmd
         options (Options):  The options list for the request (will support verse numbers later)
     Returns:
-        A long string containing the bible verse.
+        ReturnObject(Status.Success, str)
+            The str contains all queried fields from the DB.
     Raises:
         None
     """
@@ -373,7 +390,7 @@ def bookname_to_bookid(book: str, database_connection) -> str:
     Convert a book name into the ID of the book (number in bible)
     so it can be queried.
     """
-    db_cmd = "SELECT b from key_abbreviations_english where a=%s and p=1"
+    db_cmd = "SELECT b FROM key_abbreviations_english WHERE a=%s AND p=1"
     db_parameters = (book,)
     result = query_db(
         db_conn=database_connection,
@@ -388,9 +405,57 @@ def bookname_to_bookid(book: str, database_connection) -> str:
     return result.get_content().split(" ")[0]
 
 
+def get_full_book_name(book_id: str, book: str, database_connection):
+    """
+    Returns the full name of the book.
+
+    Takes in the book_id from the previous result and then queries all
+    different variations of that book name. The book with the highest
+    id value (separate from the book_id) is the 'proper' name of the book.
+
+    Args:
+        Book - str
+        db_conn - MySQL DB connection
+    Returns:
+        book_name - str
+            This will be the book name the user passed in if an error occured.
+            Otherwise it will be the full book name.
+    Raises:
+        None
+    """
+    db_query = (
+        "SELECT a FROM key_abbreviations_english WHERE b=%s ORDER BY id DESC LIMIT 1"
+    )
+    db_parameters = (book_id,)
+    result = query_db(
+        db_conn=database_connection,
+        db_cmd=db_query,
+        parameters=db_parameters,
+        options=None,
+    )
+    if result.is_error():
+        return book
+    return result.get_content()
+
+
 def query_single_verse(
     book: str, chapter: int, verse: str, options: Options
 ) -> ReturnObject:
+    """
+    Take in a single verse and return the corresponding text.
+
+    Args:
+        book (str):         The book to be queried
+        chapter (int):      The chapter to be queried
+        verse (str):        The verse to be queried
+        options (Options):  The options list for the request (will support verse numbers later)
+    Returns:
+        (ReturnObject, book)
+            ReturnObject(Status.success, str):Contains all queried fields from the DB.
+            book (str): Contains the updated book name.
+    Raises:
+        None
+    """
     db_conn = connect_to_db()
     if db_conn is None:
         return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
@@ -400,6 +465,8 @@ def query_single_verse(
     if book_id == "" and not str.isnumeric(book_id):
         warning(f"Bible book not found!")
         return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+    # Ensure the full name of the book is returned ('1Jo'->'1 John')
+    book = get_full_book_name(book_id, book, db_conn)
     # fmt: off
     verse_id = (
         "0" * (2 - len(book_id)) + book_id +
@@ -415,13 +482,17 @@ def query_single_verse(
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
-        return ReturnObject(Status.Failure, result.get_error())
+        return (ReturnObject(Status.Failure, result.get_error()), book)
     try:
-        return ReturnObject(Status.Success, result.get_content())
+        return (ReturnObject(Status.Success, result.get_content()), book)
     except TypeError as te:
         warning(f"Invalid DB return {te}")
-        return ReturnObject(
-            Status.MajorFailure, "Invalid return from DB, please contact site admin\n"
+        return (
+            ReturnObject(
+                Status.MajorFailure,
+                "Invalid return from DB, please contact site admin\n",
+            ),
+            book,
         )
 
 
@@ -430,7 +501,8 @@ def parse_db_response(
 ) -> tuple:
     """
     After querying the DB and getting a ResponseObject, this method parses it into a
-    proper response for FastAPI
+    proper response for FastAPI.
+    Does not parse the response as a book if 'text'/'t' = yes
     This returns a tuple that can be returned to the client.
     The color formatting will also be done here.
     """
@@ -440,7 +512,7 @@ def parse_db_response(
     if result.get_content() == "":
         return ReturnObject(status=Status.Failure, content="Verse not found!")
     if user_options.text_only:
-        return result.get_content()
+        return result
 
     return create_book(
         bible_verse=result.get_content(),
