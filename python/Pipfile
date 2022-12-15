@@ -38,7 +38,6 @@ uvicorn = "==0.18.3"
 virtualenv = "==20.14.1"
 werkzeug = "==2.1.2"
 zipp = "==3.8.0"
-bandit = "*"
 
 [dev-packages]
 

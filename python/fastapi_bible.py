@@ -76,7 +76,7 @@ async def random():
     book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
     chapter = str(randint(1, 10))
     verse = f"{randint(1,5)}"
-    options = Options(random=True)
+    options = Options()
     response, book = query_single_verse(book, chapter, verse, options)
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"

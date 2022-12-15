@@ -1,7 +1,7 @@
 from enum import Enum
 from math import ceil
 from textwrap import TextWrapper
-
+from logging import basicConfig, INFO, warning
 from pydantic import BaseModel, Field, validator
 
 from book_config import Book
@@ -63,7 +63,6 @@ class Options(BaseModel):
     length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
     width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
     options: str | None
-    random: bool | None
 
     @validator("options")
     def contains_options(cls, user_options, values):
@@ -198,6 +197,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
     and the rest is generated dynamically based on the parameters passed in.
     """
     book = Book()
+    basicConfig(level=INFO, filename="config.log")
 
     if user_options is not None:
         length = user_options.length
@@ -295,6 +295,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
 
         except Exception as e:
             print(e)
+            warning("Thing no work " + e)
             # TODO add exeception logging and fix bug here
             continue
 
