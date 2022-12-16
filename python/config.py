@@ -163,7 +163,7 @@ class ReturnObject:
         return self.status
 
     def get_error(self):
-        return self.status
+        return self.content
 
     def is_error(self):
         return self.status.value != Status.Success.value

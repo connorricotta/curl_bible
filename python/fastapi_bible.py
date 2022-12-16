@@ -495,14 +495,14 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
                 )
         except Error as e:
             warning(f"Bible verse not found. {e}")
-            return ReturnObject(Status.Failure.value, "Verse not found")
+            return ReturnObject(Status.Failure, "Verse not found")
 
 
 def set_query_bible_version(book_version: str, query_type: str) -> str:
     """
     The verse cannot be set dynamically, so this method must be used.
     """
-    if book_version in ["t_asv", "ASV"]:
+    if book_version.lower() in ["t_asv", "asv"]:
         if query_type == "single":
             return "SELECT t from t_asv where id=%s"
         elif query_type == "range":
@@ -510,7 +510,7 @@ def set_query_bible_version(book_version: str, query_type: str) -> str:
         elif query_type == "chapter":
             return "SELECT t from t_asv where id like %s"
 
-    elif book_version in ["t_bbe", "BBE"]:
+    elif book_version.lower() in ["t_bbe", "bbe"]:
         if query_type == "single":
             return "SELECT t from t_bbe where id=%s"
         elif query_type == "range":
@@ -518,15 +518,15 @@ def set_query_bible_version(book_version: str, query_type: str) -> str:
         elif query_type == "chapter":
             return "SELECT t from t_bbe where id like %s"
 
-    elif book_version in ["t_jkv", "JVK"]:
+    elif book_version.lower() in ["t_kjv", "kjv"]:
         if query_type == "single":
-            return "SELECT t from t_jvk where id=%s"
+            return "SELECT t from t_kjv  where id=%s"
         elif query_type == "range":
-            return "SELECT t from t_jvk where id between %s and %s"
+            return "SELECT t from t_kjv where id between %s and %s"
         elif query_type == "chapter":
-            return "SELECT t from t_jvk where id like %s"
+            return "SELECT t from t_kjv where id like %s"
 
-    elif book_version in ["t_web", "WEB"]:
+    elif book_version.lower() in ["t_web", "web"]:
         if query_type == "single":
             return "SELECT t from t_web where id=%s"
         elif query_type == "range":
@@ -534,7 +534,7 @@ def set_query_bible_version(book_version: str, query_type: str) -> str:
         elif query_type == "chapter":
             return "SELECT t from t_web where id like %s"
 
-    elif book_version in ["t_ylt", "YLT"]:
+    elif book_version.lower() in ["t_ylt", "ylt"]:
         if query_type == "single":
             return "SELECT t from t_ylt where id=%s"
         elif query_type == "range":
@@ -635,7 +635,7 @@ def query_entire_chapter(book: str, chapter: int, options: Options) -> ReturnObj
     parameters = (verse_id,)
     if db_cmd is None:
         warning(f"Cannot find bible version {verse_id}.")
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+        return ReturnObject(Status.Failure, "Invalid Bible Version\n")
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -693,7 +693,7 @@ def query_single_verse(
     parameters = (verse_id,)
     if db_cmd is None:
         warning(f"Cannot find bible version {verse_id}.")
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+        return ReturnObject(Status.Failure, "Invalid Bible Version\n")
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -761,7 +761,7 @@ def query_multiple_verses_one_chapter(
     parameters = (starting_verse_id, ending_verse_id)
     if db_cmd is None:
         warning(f"Cannot find bible version {starting_verse} {ending_verse}.")
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+        return (ReturnObject(Status.Failure, "Invalid Bible Version\n"), book)
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -844,7 +844,7 @@ def query_multiple_verses(
     parameters = (starting_verse_id, ending_verse_id)
     if db_cmd is None:
         warning(f"Cannot find bible version {starting_book_id} {ending_book_id}.")
-        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+        return ReturnObject(Status.Failure, "Invalid Bible Version\n")
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -886,7 +886,10 @@ def parse_db_response(
     if result.get_content() == "":
         return ReturnObject(status=Status.Failure, content="Verse not found!")
     if user_options.text_only:
-        return result
+        # Add newline character at end of returned text
+        return ReturnObject(
+            status=result.get_status, content=result.get_content() + "\n"
+        )
 
     return create_book(
         bible_verse=result.get_content(),
