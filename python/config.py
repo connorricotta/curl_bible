@@ -21,6 +21,8 @@ SINGLE_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
 MULTI_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
 # Matches 'John:3:1-2','Psalms:119:170-176'
 SINGLE_SEMICOLON_DASH_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
+# Matches 'John 3'
+ENTIRE_CHAPTER_REGEX = "^([A-z]*:[0-9]{1,3})$"
 # Matches 'AAA', 'ZZZ'
 VERSION_REGEX = "^([A-Z]{3})$"
 
@@ -218,12 +220,12 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
     final_book_middle_array = []
     page_width = width // 2
     # Add three lines to the start of the verses
-    if len(request_verse) == 3:
-        formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}"
-    elif len(request_verse) == 6:
-        formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
-    else:
-        formatted_verse = "".join(request_verse)
+    # if len(request_verse) == 3:
+    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}"
+    # elif len(request_verse) == 6:
+    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
+    # else:
+    formatted_verse = "".join(request_verse)
     spaced_verse = (page_width - len(formatted_verse)) // 2
     formatted_text.insert(0, "")
     formatted_text.insert(
@@ -295,7 +297,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
 
         except Exception as e:
             print(e)
-            warning("Thing no work " + e)
+            warning("Thing no work " + str(e))
             # TODO add exeception logging and fix bug here
             continue
 

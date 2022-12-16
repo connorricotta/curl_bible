@@ -7,7 +7,7 @@ from random import choice, randint
 
 # Module Imports
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query, Response, status
+from fastapi import Depends, FastAPI, Query, Response, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
 from mysql.connector import Error, connect
@@ -72,12 +72,23 @@ async def startup():
 
 @app.get("/")
 async def random():
-    # return a random bible verse
+    """
+    Randomly selects a bible passage and returns it.
+
+    Also includes a message to direct the user on how to use the application.
+
+    Args:
+        None
+    Returns:
+        book(str): A string containing the random verse with default options
+    Raises:
+        None
+    """
     book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
     chapter = str(randint(1, 10))
-    verse = f"{randint(1,5)}"
+    verse = f"{randint(1,5)}-{randint(6,10)}"
     options = Options()
-    response, book = query_single_verse(book, chapter, verse, options)
+    response, book = query_multiple_verses_one_chapter(book, chapter, verse, options)
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"
 
@@ -91,8 +102,102 @@ async def random():
     )
 
 
+@app.get("/versions")
+def show_bible_versions():
+    """
+    Return a list of the bibles supported by this webapp.
+    Taken from the 'bible_version_key' table in the DB.
+
+    Args
+        None
+    Returns:
+        (str): A string containing the help message
+    Raises:
+        None
+    """
+    return PlainTextResponse(
+        content="""
+    All current supported versions of the Bible.
+    Use the value in 'Version Name' to use that version of the bible, such as:
+        curl bible.ricotta.dev/John:3:15-19?version=BBE
+        curl bible.ricotta.dev/John:3:15-19?options=version=BBE
+    
+    King James Version (KVJ) is the default version
+
+    ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
+    │ Version Name │ Language │ Name of version             │ Copyright     │
+    ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
+    │     ASV      │ English  │ American Standard Version   │ Public Domain │
+    │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
+    │     KJV      │ English  │ King James Version          │ Public Domain │
+    │     WEB      │ English  │ World English Bible         │ Public Domain │
+    │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
+    ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
+""",
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@app.get("/help")
+def display_help():
+    """
+    Display a help message detailing all supported query methods and options.
+
+    Args:
+        None
+    Returns:
+        book(str): A string containg all supported query methods and options.
+    Raises:
+        None
+    """
+    return PlainTextResponse(
+        content="""
+   ______           __   ____  _ __    __
+  / ____/_  _______/ /  / __ )(_) /_  / /__
+ / /   / / / / ___/ /  / __  / / __ \\/ / _ \\
+/ /___/ /_/ / /  / /  / /_/ / / /_/ / /  __/
+\\____/\\__,_/_/  /_/  /_____/_/_.___/_/\\___/
+
+Curl Bible - Easily access the bible through curl (HTTPie is also supported)
+
+Supports the following query types (GET):
+    • curl bible.ricotta.dev/John:3:15-19
+    • curl bible.ricotta.dev/John/3/15-19
+    • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
+    • curl bible.ricotta.dev/John:3:15:John:4:15
+
+The following options are supported:
+    • 'l' or 'length' - the number of lines present in the book
+        default value: 20
+
+    • 'w' or 'width' - how many characters will be displayed in each line of the book.
+        default value: 80
+
+    • 'nc' or 'no_color' - display the returned book without terminal colors
+        default value: False
+
+    • 'c' or 'color' - display the returned book with terminal colors
+        default value: True
+
+    • 't' or 'text' - only returned the unformatted text.
+
+    • 'v' or 'version' - choose which version of the bible to use.
+        Default value: ASV (American Standard Version)
+        Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
+
+    These options can be combined:
+        curl bible.ricotta.dev/John:3:15:John:4:15?options=l=50,w=85,nc,v=BBE
+
+Check out the interactive help menu here: https://bible.ricotta.dev/docs
+
+Full information can be found on the README here: https://github.com/connorricotta/curl_bible
+""",
+        status_code=status.HTTP_200_OK,
+    )
+
+
 @app.get("/")
-async def parse_arguments_quote(
+async def parse_argument_quote(
     request: requests.Request,
     book: str = Query(max_length=25),
     chapter: int = Query(default=..., ge=0, le=50),
@@ -106,24 +211,135 @@ async def parse_arguments_quote(
             content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-    return {"book": book, "chapter": chapter, "verse": verse, "options": options}
+    if "-" in verse:
+        response, book = query_multiple_verses_one_chapter(
+            book, chapter, verse, options
+        )
+    else:
+        response, book = query_single_verse(book, chapter, verse, options)
+    # Query the DB
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
+
+    # Render the book with all specified options
+    full_book = parse_db_response(
+        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
+    )
+    return PlainTextResponse(content=full_book.get_content())
 
 
 @app.get("/{quote}")
 async def parse_semicolon_quote(
     request: requests.Request, quote: str, options: Options = Depends()
 ):
-    options.update(request)
     if search(SINGLE_SEMICOLON_REGEX, quote) is None:
         if search(SINGLE_SEMICOLON_DASH_REGEX, quote) is None:
             if search(MULTI_SEMICOLON_REGEX, quote) is None:
-                return Response(
-                    content="Value is not a proper quote. Please refer to bible.ricotta.dev/help\n",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                if search(ENTIRE_CHAPTER_REGEX, quote) is None:
+                    return Response(
+                        content="Value is not a proper quote. Please refer to bible.ricotta.dev/help\n",
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    )
+                # Entire chapter
+                options.update(request)
+                if len(quote.split(":")) != 2:
+                    return Response(
+                        content=f"Invalid query! '{quote}' is not made up of a Book:Chapter:Verse.",
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+                book, chapter = quote.split(":")
+                response, book = query_entire_chapter(book, chapter, options)
+                if response.is_error():
+                    return f"Unable to print verse. Reason {response.get_content()}"
+
+                # Render the book with all specified options
+                full_book = parse_db_response(
+                    result=response,
+                    user_options=options,
+                    queried_verse=f"{book} {chapter}",
                 )
-            return {"type": "multi"}
-        return {"type", "single with dash"}
-    return {"type": "single no dash"}
+                return PlainTextResponse(content=full_book.get_content())
+
+            # Multi quote
+            options.update(request)
+            if len(quote.split(":")) != 6:
+                return Response(
+                    content=f"Invalid query! '{quote}' is not made up of a Book:Chapter:Verse.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            # Parse request into arguments
+            (book_1, chapter_1, verse_1, book_2, chapter_2, verse_2) = quote.split(":")
+            response, book_1, book_2 = query_multiple_verses(
+                starting_book=book_1,
+                starting_chapter=chapter_1,
+                starting_verse=verse_1,
+                ending_book=book_2,
+                ending_chapter=chapter_2,
+                ending_verse=verse_2,
+                options=options,
+            )
+            if response.is_error():
+                return f"Unable to print verse. Reason {response.get_content()}"
+
+            # Have the returned verse look nice.
+            if book_1 == book_2 and chapter_1 != chapter_2:
+                full_verse = f"{book_1} {chapter_1}:{verse_1}-{chapter_2}:{verse_2}"
+            elif chapter_1 == chapter_2:
+                full_verse = f"{book_1} {chapter_1}:{verse_1}-{verse_2}"
+            else:
+                full_verse = (
+                    f"{book_1} {chapter_1}:{verse_1}-{book_2} {chapter_2}:{verse_2}"
+                )
+            # Render the book with all specified options
+            full_book = parse_db_response(
+                result=response,
+                user_options=options,
+                queried_verse=full_verse,
+            )
+            return PlainTextResponse(content=full_book.get_content())
+
+        # Single WITH dash
+        options.update(request)
+        if len(quote.split(":")) != 3:
+            return Response(
+                content=f"Invalid query! '{quote}' is not made up of a Book:Chapter:Verse.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        book, chapter, verse = quote.split(":")
+        # Query the DB
+        response, book = query_multiple_verses_one_chapter(
+            book, chapter, verse, options
+        )
+        if response.is_error():
+            return f"Unable to print verse. Reason {response.get_content()}"
+
+        # Render the book with all specified options
+        full_book = parse_db_response(
+            result=response,
+            user_options=options,
+            queried_verse=f"{book} {chapter}:{verse}",
+        )
+        return PlainTextResponse(content=full_book.get_content())
+
+    # Single without dash
+    options.update(request)
+    if len(quote.split(":")) != 3:
+        return Response(
+            content=f"Invalid query! '{quote}' is not made up of a Book:Chapter:Verse.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    book, chapter, verse = quote.split(":")
+
+    # Query the DB
+    response, book = query_single_verse(book, chapter, verse, options)
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
+
+    # Render the book with all specified options
+    full_book = parse_db_response(
+        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
+    )
+    return PlainTextResponse(content=full_book.get_content())
 
 
 @app.get("/{book}/{chapter}/{verse}")
@@ -155,104 +371,48 @@ async def parse_single_slash_quote(
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
 async def parse_multi_slash_quote(
+    request: requests.Request,
     book_1: str = Query(default=..., min_length=4, max_length=25),
     book_2: str = Query(default=..., min_length=4, max_length=25),
     chapter_1: int = Query(default=..., le=25),
     chapter_2: int = Query(default=..., le=25),
     verse_1: str = Query(default=..., regex=VERSE_REGEX),
     verse_2: str = Query(default=..., regex=VERSE_REGEX),
+    options: Options = Depends(),
 ):
+    options.update(request)
     verse_num = validate_verses([verse_1, verse_2])
     if verse_num != 0:
         return Response(
             content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-    return {
-        "book_1": book_1,
-        "chapter_1": chapter_1,
-        "book_2": book_2,
-        "chapter_2": chapter_2,
-        "verse_1": verse_1,
-        "verse_2": verse_2,
-    }
-
-
-@app.get("/versions")
-def show_bible_versions():
-    """
-    Just return a list of the bibles supported by this webapp.
-    Taken from the 'bible_version_key' table in the DB.
-    """
-
-    return PlainTextResponse(
-        content="""
-    All current supported versions of the Bible.
-    Use the value in 'Version Name' to use that version of the bible, such as:
-        curl bible.ricotta.dev/John:3:15-19?version=BBE
-        curl bible.ricotta.dev/John:3:15-19?options=version=BBE
-    
-    King James Version (KVJ) is the default version
-
-    ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
-    │ Version Name │ Language │ Name of version             │ Copyright     │
-    ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
-    │     ASV      │ English  │ American Standard Version   │ Public Domain │
-    │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
-    │     KJV      │ English  │ King James Version          │ Public Domain │
-    │     WEB      │ English  │ World English Bible         │ Public Domain │
-    │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
-    ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
-""",
-        status_code=status.HTTP_200_OK,
+    # Query the DB
+    response, book_1, book_2 = query_multiple_verses(
+        starting_book=book_1,
+        starting_chapter=chapter_1,
+        starting_verse=verse_1,
+        ending_book=book_2,
+        ending_chapter=chapter_2,
+        ending_verse=verse_2,
     )
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
 
-
-@app.get("/help")
-def display_help():
-
-    return PlainTextResponse(
-        content="""
-   ______           __   ____  _ __    __
-  / ____/_  _______/ /  / __ )(_) /_  / /__
- / /   / / / / ___/ /  / __  / / __ \\/ / _ \\
-/ /___/ /_/ / /  / /  / /_/ / / /_/ / /  __/
-\\____/\\__,_/_/  /_/  /_____/_/_.___/_/\\___/
-
-Curl Bible - Easily access the bible through curl (HTTPie is also supported)
-
-Supports the following query types (GET and POST):
-    • curl bible.ricotta.dev/John:3:15-19
-    • curl bible.ricotta.dev/John/3/15-19
-    • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
-    • curl bible.ricotta.dev/John:3:15:John:4:15
-
-The following options are supported:
-    • 'l' or 'length' - the number of lines present in the book
-        default value: 20
-
-    • 'w' or 'width' - how many characters will be displayed in each line of the book.
-        default value: 80
-
-    • 'nc' or 'no_color' - display the returned book without terminal colors
-        default value: False
-
-    • 'c' or 'color' - display the returned book with terminal colors
-        default value: True
-
-    • 't' or 'text' - only returned the unformatted text.
-
-    • 'v' or 'version' - choose which version of the bible to use.
-        Default value: ASV (American Standard Version)
-        Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
-
-    These options can be combined:
-        curl bible.ricotta.dev/John:3:15:John:4:15?options=l=50,w=85,nc,v=BBE
-
-Check the README on GitHub for full information: https://github.com/connorricotta/curl_bible
-""",
-        status_code=status.HTTP_200_OK,
+    # Have the returned verse look nice.
+    if book_1 == book_2:
+        full_verse = f"{book_1} {chapter_1}:{verse_1} - {chapter_2}:{verse_2}"
+    elif chapter_1 == chapter_2:
+        full_verse = f"{book_1} {chapter_1}:{verse_1} - {verse_2}"
+    else:
+        full_verse = f"{book_1} {chapter_1}:{verse_1} - {book_2} {chapter_2}:{verse_2}"
+    # Render the book with all specified options
+    full_book = parse_db_response(
+        result=response,
+        user_options=options,
+        queried_verse=full_verse,
     )
+    return PlainTextResponse(content=full_book.get_content())
 
 
 def validate_verses(verse_list: list) -> int:
@@ -438,6 +598,61 @@ def get_full_book_name(book_id: str, book: str, database_connection):
     return result.get_content()
 
 
+def query_entire_chapter(book: str, chapter: int, options: Options) -> ReturnObject:
+    """
+    Take in a single verse and return the corresponding text.
+
+    Args:
+        book (str):         The book to be queried
+        chapter (int):      The chapter to be queried
+        options (Options):  The options list for the request (will support verse numbers later)
+    Returns:
+        (ReturnObject, book)
+            ReturnObject(Status.success, str):Contains all queried fields from the DB.
+            book (str): Contains the updated book name.
+    Raises:
+        None
+    """
+    db_conn = connect_to_db()
+    if db_conn is None:
+        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+
+    # Correlate book name to book id
+    book_id = bookname_to_bookid(book, db_conn)
+    if book_id == "" and not str.isnumeric(book_id):
+        warning(f"Bible book not found!")
+        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+    # Ensure the full name of the book is returned ('1Jo'->'1 John')
+    book = get_full_book_name(book_id, book, db_conn)
+    # fmt: off
+    verse_id = (
+        "0" * (2 - len(book_id)) + book_id +
+        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "%%"
+    )
+    # fmt: on
+    db_cmd = set_query_bible_version(options.version, "chapter")
+    parameters = (verse_id,)
+    if db_cmd is None:
+        warning(f"Cannot find bible version {verse_id}.")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+    result = query_db(db_conn, db_cmd, parameters, options)
+
+    if result.is_error():
+        return (ReturnObject(Status.Failure, result.get_error()), book)
+    try:
+        return (ReturnObject(Status.Success, result.get_content()), book)
+    except TypeError as te:
+        warning(f"Invalid DB return {te}")
+        return (
+            ReturnObject(
+                Status.MajorFailure,
+                "Invalid return from DB, please contact site admin\n",
+            ),
+            book,
+        )
+
+
 def query_single_verse(
     book: str, chapter: int, verse: str, options: Options
 ) -> ReturnObject:
@@ -496,6 +711,165 @@ def query_single_verse(
         )
 
 
+def query_multiple_verses_one_chapter(
+    book: str, chapter: int, verse: str, options: Options
+) -> ReturnObject:
+    """
+    Take in a single verse and return the corresponding text.
+
+    Args:
+        book (str):         The book to be queried
+        chapter (int):      The chapter to be queried
+        verse (str):        The verse to be queried. In the form '{verse_1}-{verse_2}'
+        options (Options):  The options list for the request (will support verse numbers later)
+    Returns:
+        (ReturnObject, book)
+            ReturnObject(Status.success, str):Contains all queried fields from the DB.
+            book (str): Contains the updated book name.
+    Raises:
+        None
+    """
+    db_conn = connect_to_db()
+    if db_conn is None:
+        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+    if len(verse.split("-")) != 2:
+        return ReturnObject(
+            Status.Failure, f"Invalid Verse! {verse} Cannot be split up into two parts!"
+        )
+    starting_verse, ending_verse = verse.split("-")
+    # Correlate book name to book id
+    book_id = bookname_to_bookid(book, db_conn)
+    if book_id == "" and not str.isnumeric(book_id):
+        warning(f"Bible book not found!")
+        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+
+    # Ensure the full name of the book is returned ('1Jo'->'1 John')
+    book = get_full_book_name(book_id, book, db_conn)
+    # fmt: off
+    starting_verse_id = (
+        "0" * (2 - len(book_id)) + book_id +
+        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(starting_verse)) + starting_verse
+    )
+    ending_verse_id = (
+        "0" * (2 - len(book_id)) + book_id +
+        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(ending_verse)) + ending_verse
+    )
+    # fmt: on
+    db_cmd = set_query_bible_version(options.version, "range")
+    parameters = (starting_verse_id, ending_verse_id)
+    if db_cmd is None:
+        warning(f"Cannot find bible version {starting_verse} {ending_verse}.")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+    result = query_db(db_conn, db_cmd, parameters, options)
+
+    if result.is_error():
+        return (ReturnObject(Status.Failure, result.get_error()), book)
+    try:
+        return (ReturnObject(Status.Success, result.get_content()), book)
+    except TypeError as te:
+        warning(f"Invalid DB return {te}")
+        return (
+            ReturnObject(
+                Status.MajorFailure,
+                "Invalid return from DB, please contact site admin\n",
+            ),
+            book,
+        )
+
+
+def query_multiple_verses(
+    starting_book: str,
+    starting_chapter: int,
+    starting_verse: str,
+    ending_book: str,
+    ending_chapter: int,
+    ending_verse: str,
+    options: Options,
+) -> ReturnObject:
+    """
+    Take in multiple verses and return the corresponding text.
+
+    Args:
+        starting_book (str):    The starting book to be queried
+        starting_chapter (int): The starting chapter to be queried
+        starting_verse (str):   The starting verse to be queried
+        ending_book (str):      The ending book to be queried
+        ending_chapter (int):   The ending chapter to be queried
+        ending_verse (str):     The ending verse to be queried
+        options (Options):      The options list for the request (will support verse numbers later)
+    Returns:
+        (ReturnObject, starting_book, ending_book)
+            ReturnObject(Status.success, str):Contains all queried fields from the DB.
+            starting_book (str): Contains the updated name of the first book.
+            ending_book (str): Contains the updated name of the second book.
+    Raises:
+        None
+    """
+    db_conn = connect_to_db()
+    if db_conn is None:
+        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+
+    # Correlate book name to book id
+    starting_book_id = bookname_to_bookid(starting_book, db_conn)
+    ending_book_id = bookname_to_bookid(ending_book, db_conn)
+    if (
+        starting_book_id == ""
+        and not str.isnumeric(starting_book_id)
+        or ending_book_id == ""
+        and not str.isnumeric(ending_book_id)
+    ):
+        warning(f"Bible book not found!")
+        return ReturnObject(
+            Status.Failure, f"Books '{starting_book}' or '{ending_book}' not found\n"
+        )
+    # Ensure the full name of the book is returned ('1Jo'->'1 John')
+    starting_book = get_full_book_name(
+        book_id=starting_book_id, book=starting_book, database_connection=db_conn
+    )
+    ending_book = get_full_book_name(
+        book_id=ending_book_id, book=ending_book, database_connection=db_conn
+    )
+    # fmt: off
+    starting_verse_id = "0" * (2 - len(starting_book_id)) + starting_book_id + \
+        "0" * (3 - len(starting_chapter)) + starting_chapter + \
+        "0" * (3 - len(starting_verse)) + starting_verse
+
+    ending_verse_id = "0" * (2 - len(ending_book_id)) + ending_book_id + \
+        "0" * (3 - len(ending_chapter)) + ending_chapter + \
+        "0" * (3 - len(ending_verse)) + ending_verse
+    # fmt: on
+    db_cmd = set_query_bible_version(options.version, "range")
+    parameters = (starting_verse_id, ending_verse_id)
+    if db_cmd is None:
+        warning(f"Cannot find bible version {starting_book_id} {ending_book_id}.")
+        return ReturnObject(Status.Failure.value, "Invalid Bible Version\n")
+    result = query_db(db_conn, db_cmd, parameters, options)
+
+    if result.is_error():
+        return (
+            ReturnObject(Status.Failure, result.get_error()),
+            starting_book,
+            ending_book,
+        )
+    try:
+        return (
+            ReturnObject(Status.Success, result.get_content()),
+            starting_book,
+            ending_book,
+        )
+    except TypeError as te:
+        warning(f"Invalid DB return {te}")
+        return (
+            ReturnObject(
+                Status.MajorFailure,
+                "Invalid return from DB, please contact site admin\n",
+            ),
+            starting_book,
+        )
+
+
 def parse_db_response(
     result: ReturnObject, user_options: Options, queried_verse: dict
 ) -> tuple:
@@ -519,12 +893,3 @@ def parse_db_response(
         user_options=user_options,
         request_verse=queried_verse,
     )
-
-    # elif options is not None and "random" in options:
-    #     return (
-    #         book.get_content()[0]
-    #         + "\nTry 'curl bible.ricotta.dev/help' for more information.\n",
-    #         200,
-    #     )
-    # else:
-    #     return (book.get_content()[0], 200)
