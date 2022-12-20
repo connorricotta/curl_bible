@@ -342,6 +342,25 @@ async def parse_semicolon_quote(
     return PlainTextResponse(content=full_book.get_content())
 
 
+@app.get("/{book}/{chapter}")
+async def parse_chapter(
+    request: requests.Request,
+    book: str = Query(default=..., min_length=4, max_length=20),
+    chapter: int = Query(default=..., ge=0, lt=1000),
+    options: Options = Depends(),
+):
+    options.update(request)
+    response, book = query_entire_chapter(book, chapter, options)
+    if response.is_error():
+        return f"Unable to print verse. Reason {response.get_content()}"
+
+    # Render the book with all specified options
+    full_book = parse_db_response(
+        result=response, user_options=options, queried_verse=f"{book} {chapter}"
+    )
+    return PlainTextResponse(content=full_book.get_content())
+
+
 @app.get("/{book}/{chapter}/{verse}")
 async def parse_single_slash_quote(
     request: requests.Request,
@@ -358,7 +377,12 @@ async def parse_single_slash_quote(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     # Query the DB
-    response, book = query_single_verse(book, chapter, verse, options)
+    if "-" in verse:
+        response, book = query_multiple_verses_one_chapter(
+            book, chapter, verse, options
+        )
+    else:
+        response, book = query_single_verse(book, chapter, verse, options)
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"
 
@@ -395,6 +419,7 @@ async def parse_multi_slash_quote(
         ending_book=book_2,
         ending_chapter=chapter_2,
         ending_verse=verse_2,
+        options=options,
     )
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"
@@ -486,13 +511,39 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
     """
     with db_conn.cursor(buffered=True) as cursor:
         try:
-            cursor.execute(db_cmd, parameters)
-            if cursor.with_rows:
-                text = cursor.fetchall()
-                # Combine all returned fields into a single string.
-                return ReturnObject(
-                    Status.Success, " ".join([str(verse[0]) for verse in text])
-                )
+            if options is None or (
+                options is not None and options.verse_numbers is False
+            ):
+                cursor.execute(db_cmd, parameters)
+                if cursor.with_rows:
+                    text = cursor.fetchall()
+                    # Combine all returned fields into a single string.
+                    return ReturnObject(
+                        Status.Success, " ".join([str(verse[0]) for verse in text])
+                    )
+            elif options is not None and options.verse_numbers is True:
+                # Ensure the verse numbers are also queried.
+                db_cmd = db_cmd.replace(" t ", " t,v ")
+                cursor.execute(db_cmd, parameters)
+                if cursor.with_rows:
+                    text = cursor.fetchall()
+                    for count, verse in enumerate(text):
+                        small_verse_number = ""
+                        for num in str(verse[-1]):
+                            """
+                            Convert each verse number into the small text. This is done by
+                            adding 8320 to the Unicode value of each verse number, which converts it
+                            into the associated 'small' Unicode number.
+                            3           --> ₃
+                            chr(3)='3'      chr(8323)='₃'
+                            """
+                            small_verse_number += chr(int(num) + 8320)
+                        # Update tuple (by creating new one)
+                        text[count] = (verse[0], small_verse_number)
+                    return ReturnObject(
+                        Status.Success,
+                        " ".join([verse[-1] + verse[0] for verse in text]),
+                    )
         except Error as e:
             warning(f"Bible verse not found. {e}")
             return ReturnObject(Status.Failure, "Verse not found")
@@ -615,13 +666,13 @@ def query_entire_chapter(book: str, chapter: int, options: Options) -> ReturnObj
     """
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+        return (ReturnObject(Status.MajorFailure, "Cannot connect to local DB"), book)
 
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
         warning(f"Bible book not found!")
-        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+        return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     book = get_full_book_name(book_id, book, db_conn)
     # fmt: off
@@ -673,13 +724,13 @@ def query_single_verse(
     """
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+        return (ReturnObject(Status.MajorFailure, "Cannot connect to local DB"), book)
 
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
         warning(f"Bible book not found!")
-        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+        return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     book = get_full_book_name(book_id, book, db_conn)
     # fmt: off
@@ -693,7 +744,7 @@ def query_single_verse(
     parameters = (verse_id,)
     if db_cmd is None:
         warning(f"Cannot find bible version {verse_id}.")
-        return ReturnObject(Status.Failure, "Invalid Bible Version\n")
+        return (ReturnObject(Status.Failure, "Invalid Bible Version\n"), book)
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -731,17 +782,21 @@ def query_multiple_verses_one_chapter(
     """
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+        return (ReturnObject(Status.MajorFailure, "Cannot connect to local DB"), book)
     if len(verse.split("-")) != 2:
-        return ReturnObject(
-            Status.Failure, f"Invalid Verse! {verse} Cannot be split up into two parts!"
+        return (
+            ReturnObject(
+                Status.Failure,
+                f"Invalid Verse! {verse} Cannot be split up into two parts!",
+            ),
+            book,
         )
     starting_verse, ending_verse = verse.split("-")
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
         warning(f"Bible book not found!")
-        return ReturnObject(Status.Failure, f"Book '{book}' not found\n")
+        return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
 
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     book = get_full_book_name(book_id, book, db_conn)
@@ -809,7 +864,11 @@ def query_multiple_verses(
     """
     db_conn = connect_to_db()
     if db_conn is None:
-        return ReturnObject(Status.MajorFailure, "Cannot connect to local DB")
+        return (
+            ReturnObject(Status.MajorFailure, "Cannot connect to local DB"),
+            starting_book,
+            ending_book,
+        )
 
     # Correlate book name to book id
     starting_book_id = bookname_to_bookid(starting_book, db_conn)
@@ -821,8 +880,13 @@ def query_multiple_verses(
         and not str.isnumeric(ending_book_id)
     ):
         warning(f"Bible book not found!")
-        return ReturnObject(
-            Status.Failure, f"Books '{starting_book}' or '{ending_book}' not found\n"
+        return (
+            ReturnObject(
+                Status.Failure,
+                f"Books '{starting_book}' or '{ending_book}' not found\n",
+            ),
+            starting_book,
+            ending_book,
         )
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     starting_book = get_full_book_name(
@@ -832,19 +896,23 @@ def query_multiple_verses(
         book_id=ending_book_id, book=ending_book, database_connection=db_conn
     )
     # fmt: off
-    starting_verse_id = "0" * (2 - len(starting_book_id)) + starting_book_id + \
-        "0" * (3 - len(starting_chapter)) + starting_chapter + \
+    starting_verse_id = "0" * (2 - len(str(starting_book_id))) + str(starting_book_id) + \
+        "0" * (3 - len(str(starting_chapter))) + str(starting_chapter) + \
         "0" * (3 - len(starting_verse)) + starting_verse
 
-    ending_verse_id = "0" * (2 - len(ending_book_id)) + ending_book_id + \
-        "0" * (3 - len(ending_chapter)) + ending_chapter + \
+    ending_verse_id = "0" * (2 - len(str(ending_book_id))) + str(ending_book_id) + \
+        "0" * (3 - len(str(ending_chapter))) + str(ending_chapter) + \
         "0" * (3 - len(ending_verse)) + ending_verse
     # fmt: on
     db_cmd = set_query_bible_version(options.version, "range")
     parameters = (starting_verse_id, ending_verse_id)
     if db_cmd is None:
         warning(f"Cannot find bible version {starting_book_id} {ending_book_id}.")
-        return ReturnObject(Status.Failure, "Invalid Bible Version\n")
+        return (
+            ReturnObject(Status.Failure, "Invalid Bible Version\n"),
+            starting_book,
+            ending_book,
+        )
     result = query_db(db_conn, db_cmd, parameters, options)
 
     if result.is_error():
@@ -867,6 +935,7 @@ def query_multiple_verses(
                 "Invalid return from DB, please contact site admin\n",
             ),
             starting_book,
+            ending_book,
         )
 
 

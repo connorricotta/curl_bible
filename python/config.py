@@ -12,6 +12,7 @@ VERSION_DEFAULT = "ASV"
 LENGTH_DEFAULT = 60
 WIDTH_DEFAULT = 80
 OPTIONS_DEFAULT = ""
+VERSE_NUMBERS = False
 
 # Matches '3','999','1-999','999-1'
 VERSE_REGEX = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
@@ -38,6 +39,7 @@ class OptionsNames:
         "t": "text_only",
         "w": "width",
         "v": "version",
+        "n": "verse_numbers",
     }
 
     values = {
@@ -46,6 +48,7 @@ class OptionsNames:
         "text_only": TEXT_ONLY_DEFAULT,
         "width": WIDTH_DEFAULT,
         "version": VERSION_DEFAULT,
+        "verse_numbers": VERSE_NUMBERS,
     }
 
     def to_long(self, option):
@@ -64,6 +67,7 @@ class Options(BaseModel):
     version: str | None = Field(default=VERSION_DEFAULT)
     length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
     width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
+    verse_numbers: bool | None = Field(default=VERSE_NUMBERS)
     options: str | None
 
     @validator("options")
@@ -100,6 +104,7 @@ class Options(BaseModel):
         # Update the options passed to FastAPI to match the default_options dict.
         values["color_text"] = is_bool(default_options.values["color_text"])
         values["text_only"] = is_bool(default_options.values["text_only"])
+        values["verse_numbers"] = is_bool(default_options.values["verse_numbers"])
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
         if (type(default_options.values["length"]) == int) or (
@@ -123,7 +128,7 @@ class Options(BaseModel):
         user Options object
         """
         params = dict(user_options.query_params)
-        options_set = set(("l", "w", "v", "t", "c"))
+        options_set = set(("l", "w", "v", "t", "c", "n"))
         # Only parse them if the user passes in options with one of the values in 'options_set'
         short_options = options_set.intersection(params)
         if short_options is not None:
@@ -142,6 +147,8 @@ class Options(BaseModel):
                 elif key == "v":
                     if len(value) == 3:
                         self.version = value.upper()
+                elif key == 'n':
+                    self.verse_numbers = is_bool(value)
         return ""
 
 
