@@ -1,17 +1,18 @@
 # Standard Library Imports
-from logging import basicConfig, critical, exception, warning
-from os import getenv, mkdir, path, stat
+from logging import basicConfig, critical, warning
+from os import getenv, mkdir, path
 from pathlib import Path
 from re import search
 from random import choice, randint
 
 # Module Imports
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query, Response, status, HTTPException
+from fastapi import Depends, FastAPI, Query, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
 from mysql.connector import Error, connect
 from starlette import requests
+from typing import Union
 
 # Sub-directory imports
 from config import *
@@ -68,6 +69,71 @@ async def startup():
     if None in DB_CONFIG.values():
         critical("All values from the .env file could not be pulled.")
         exit(1)
+
+
+@app.get("/")
+async def as_arguments_book_chapter_verse(
+    request: requests.Request,
+    book: Union[str, None] = Query(default=None, max_length=25),
+    chapter: Union[int, None] = Query(default=None, ge=0, le=50),
+    verse: Union[str, None] = Query(default=None, regex=VERSE_REGEX),
+    options: Options = Depends(),
+):
+    """
+    Either takes in a book, chapter, verse through query parameters, or randomly selects a bible passage and returns it.
+
+    Type of query is determined by if the book, chapter, and verse is None.
+    If it is a random query, it also includes a message to direct the user on how to use the application.
+
+    Args:
+        None
+    Returns:
+        book(str): A string containing the random verse with default options
+    Raises:
+        None
+    """
+    options.update(request)
+    if book == None and chapter == None and verse == None:
+        # Query random verse
+        book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
+        chapter = str(randint(1, 10))
+        verse = f"{randint(1,5)}-{randint(6,10)}"
+        options = Options()
+        response, book = query_multiple_verses_one_chapter(
+            book, chapter, verse, options
+        )
+        if response.is_error():
+            return f"Unable to print verse. Reason {response.get_content()}"
+
+        full_book = parse_db_response(
+            result=response,
+            user_options=options,
+            queried_verse=f"{book} {chapter}:{verse}",
+        )
+    else:
+        verse_num = validate_verses([verse])
+        if verse_num != 0:
+            return Response(
+                content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        if "-" in verse:
+            response, book = query_multiple_verses_one_chapter(
+                book, chapter, verse, options
+            )
+        else:
+            response, book = query_single_verse(book, chapter, verse, options)
+        # Query the DB
+        if response.is_error():
+            return f"Unable to print verse. Reason {response.get_content()}"
+
+        # Render the book with all specified options
+        full_book = parse_db_response(
+            result=response,
+            user_options=options,
+            queried_verse=f"{book} {chapter}:{verse}",
+        )
+    return PlainTextResponse(content=full_book.get_content())
 
 
 @app.get("/")
@@ -196,40 +262,8 @@ Full information can be found on the README here: https://github.com/connorricot
     )
 
 
-@app.get("/")
-async def parse_argument_quote(
-    request: requests.Request,
-    book: str = Query(max_length=25),
-    chapter: int = Query(default=..., ge=0, le=50),
-    verse: str = Query(regex=VERSE_REGEX),
-    options: Options = Depends(),
-):
-    options.update(request)
-    verse_num = validate_verses([verse])
-    if verse_num != 0:
-        return Response(
-            content=f"Verse {verse_num} is not a verse. Accepted values include '3','15','159'\n",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
-    if "-" in verse:
-        response, book = query_multiple_verses_one_chapter(
-            book, chapter, verse, options
-        )
-    else:
-        response, book = query_single_verse(book, chapter, verse, options)
-    # Query the DB
-    if response.is_error():
-        return f"Unable to print verse. Reason {response.get_content()}"
-
-    # Render the book with all specified options
-    full_book = parse_db_response(
-        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
-    )
-    return PlainTextResponse(content=full_book.get_content())
-
-
 @app.get("/{quote}")
-async def parse_semicolon_quote(
+async def colon_delimited_book_chapter_verse(
     request: requests.Request, quote: str, options: Options = Depends()
 ):
     if search(SINGLE_SEMICOLON_REGEX, quote) is None:
@@ -343,7 +377,7 @@ async def parse_semicolon_quote(
 
 
 @app.get("/{book}/{chapter}")
-async def parse_chapter(
+async def as_slashes_book_chapter(
     request: requests.Request,
     book: str = Query(default=..., min_length=4, max_length=20),
     chapter: int = Query(default=..., ge=0, lt=1000),
@@ -362,7 +396,7 @@ async def parse_chapter(
 
 
 @app.get("/{book}/{chapter}/{verse}")
-async def parse_single_slash_quote(
+async def as_slashes_book_chapter_verse(
     request: requests.Request,
     book: str = Query(default=..., min_length=4, max_length=20),
     chapter: int = Query(default=..., ge=0, lt=1000),
@@ -394,7 +428,7 @@ async def parse_single_slash_quote(
 
 
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
-async def parse_multi_slash_quote(
+async def as_slashes_book1_chapter1_verse1_book2_chapter2_verse2(
     request: requests.Request,
     book_1: str = Query(default=..., min_length=4, max_length=25),
     book_2: str = Query(default=..., min_length=4, max_length=25),

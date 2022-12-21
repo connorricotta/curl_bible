@@ -147,7 +147,7 @@ class Options(BaseModel):
                 elif key == "v":
                     if len(value) == 3:
                         self.version = value.upper()
-                elif key == 'n':
+                elif key == "n":
                     self.verse_numbers = is_bool(value)
         return ""
 
