@@ -28,5 +28,5 @@ services:
       - 10000:10000
     volumes:
       # Allow logs to be viewed without entering the container.
-      - ./logs:/usr/src/app/logs
+      - ./logs:/usr/src/app/python/log
     restart: always
