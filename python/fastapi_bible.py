@@ -571,7 +571,7 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
                             3           --> ₃
                             chr(3)='3'      chr(8323)='₃'
                             """
-                            small_verse_number += chr(int(num) + 8320)
+                            small_verse_number += REGULAR_TO_SUPERSCRIPT[num]
                         # Update tuple (by creating new one)
                         text[count] = (verse[0], small_verse_number)
                     return ReturnObject(

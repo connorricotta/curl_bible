@@ -28,6 +28,21 @@ ENTIRE_CHAPTER_REGEX = "^([A-z]*:[0-9]{1,3})$"
 VERSION_REGEX = "^([A-Z]{3})$"
 
 
+# Because these superscripts are in different Unicode blocks, just manually replace values.
+REGULAR_TO_SUPERSCRIPT = {
+    '0': "⁰",
+    '1': "¹",
+    '2': "²",
+    '3': "³",
+    '4': "⁴",
+    '5': "⁵",
+    '6': "⁶",
+    '7': "⁷",
+    '8': "⁸",
+    '9': "⁹"
+
+}
+
 class OptionsNames:
     """
     Contains
