@@ -110,6 +110,10 @@ async def as_arguments_book_chapter_verse(
             user_options=options,
             queried_verse=f"{book} {chapter}:{verse}",
         )
+        return PlainTextResponse(
+            content=full_book.get_content()
+            + "\nTry 'curl bible.ricotta.dev/help' for more information.\n"
+        )
     else:
         verse_num = validate_verses([verse])
         if verse_num != 0:

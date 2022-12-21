@@ -30,18 +30,18 @@ VERSION_REGEX = "^([A-Z]{3})$"
 
 # Because these superscripts are in different Unicode blocks, just manually replace values.
 REGULAR_TO_SUPERSCRIPT = {
-    '0': "⁰",
-    '1': "¹",
-    '2': "²",
-    '3': "³",
-    '4': "⁴",
-    '5': "⁵",
-    '6': "⁶",
-    '7': "⁷",
-    '8': "⁸",
-    '9': "⁹"
-
+    "0": "⁰",
+    "1": "¹",
+    "2": "²",
+    "3": "³",
+    "4": "⁴",
+    "5": "⁵",
+    "6": "⁶",
+    "7": "⁷",
+    "8": "⁸",
+    "9": "⁹",
 }
+
 
 class OptionsNames:
     """
@@ -93,6 +93,14 @@ class Options(BaseModel):
         """
 
         default_options = OptionsNames()
+        default_values = {
+            "color_text": COLOR_TEXT_DEFAULT,
+            "length": LENGTH_DEFAULT,
+            "text_only": TEXT_ONLY_DEFAULT,
+            "width": WIDTH_DEFAULT,
+            "version": VERSION_DEFAULT,
+            "verse_numbers": VERSE_NUMBERS,
+        }
         if user_options == "" or user_options is None:
             return user_options
 
@@ -114,26 +122,25 @@ class Options(BaseModel):
 
             # If the user passes in a valid option, update the default value
             #   Ex: 'l':45 will be converted into 'length':45 and replace the default value
-            default_options.values[default_options.to_long(option_name)] = option_value
+            default_values[default_options.to_long(option_name)] = option_value
 
         # Update the options passed to FastAPI to match the default_options dict.
-        values["color_text"] = is_bool(default_options.values["color_text"])
-        values["text_only"] = is_bool(default_options.values["text_only"])
-        values["verse_numbers"] = is_bool(default_options.values["verse_numbers"])
+        values["color_text"] = is_bool(default_values.get("color_text"))
+        values["text_only"] = is_bool(default_values.get("text_only"))
+        values["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
-        if (type(default_options.values["length"]) == int) or (
-            str.isnumeric(default_options.values["length"])
-            and int(default_options.values["length"]) > 0
+        if (type(default_values.get("length")) == int) or (
+            str.isnumeric(default_values.get("length"))
+            and int(default_values.get("length")) > 0
         ):
-            values["length"] = int(default_options.values["length"])
-        if (type(default_options.values["width"]) == int) or (
-            str.isnumeric(default_options.values["width"])
-            and int(default_options.values["width"]) > 0
+            values["length"] = int(default_values["length"])
+        if (type(default_values["width"]) == int) or (
+            str.isnumeric(default_values["width"]) and int(default_values["width"]) > 0
         ):
-            values["width"] = int(default_options.values["width"])
-        if len(default_options.values["version"]) == 3:
-            values["version"] = default_options.values["version"].upper()
+            values["width"] = int(default_values["width"])
+        if len(default_values["version"]) == 3:
+            values["version"] = default_values["version"].upper()
 
         return user_options
 
