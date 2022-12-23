@@ -21,7 +21,7 @@ Read passages from the bible using curl or HTTPie! All output to the terminal co
 
   $ curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-19"
 
-  $ curl "bible.ricotta.dev/John/3/15-19?version=YLT&options=text"
+  $ curl "bible.ricotta.dev/John/3/15-19?version=YLT&text_only=True"
 ```
 
 ## Installation (Docker)
@@ -108,7 +108,7 @@ $ curl bible.ricotta.dev/John/3/15-20
 3. Parameter Query (/?book=`Book`&chapter=`Chapter`&verse=`Verse`)
 
 ```sh
-$ curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-20"
+$ curl "bible.ricotta.dev?book=John&chapter=3&verse=15-20"
 ```
 
 ### These endpoints can be queried with the following formats.
@@ -135,16 +135,15 @@ The length, width, and output color of the returned book can be controlled by ap
 2. `width` or `w`:
    - The size of each row in the returned book.
    - Default Value: **`80`**
-3. `text` or `t`:
+3. `text_only` or `t`:
    - Only return the text, not the book.
    - Default Value: **`False`**
-4. `no_color` or `nc`:
-   - Return the book without any ANSI Escape Codes.
-     Useful if the default command is causing display errors.
-   - Default Value: **`False`**
-5. `color` or `c`:
+4. `color_text` or `c`:
    - Include ANSI Escape Codes in the output.
    - Default Value: **`True`**
+5. `verse_number` or `b`:
+   - Display the associated verse numbers in superscript.
+   - Default value: **`False`**
 6. `version` or `v`:
    - Specify which translation of the bible to query from.
    - Default Value **`ASV`** ([American Standard Version](https://en.wikipedia.org/wiki/American_Standard_Version))
@@ -152,9 +151,11 @@ The length, width, and output color of the returned book can be controlled by ap
 ### Examples:
 
 ```sh
-$ curl "bible.ricotta.dev/John/3/15-20?options=length=25,width=50,no_color,version=ASV"
+$ curl "bible.ricotta.dev/John/3/15-20?options=length=25,color_text=False,version=ASV"
 
-$ curl "bible.ricotta.dev?book=John&chapter=3&o=l=26,w=75,t"
+$ curl "bible.ricotta.dev/John/3/15-20?length=25&color_text=False&version=ASV"
+
+$ curl "bible.ricotta.dev/John/3/15-20?l=&w=50&c=False&v=ASV"
 ```
 
 ### These options can be displayed with the command
@@ -179,7 +180,7 @@ These versions are taken from https://github.com/scrollmapper/bible_databases
 ```sh
 $ curl bible.ricotta.dev/John/3/15-20?version=ASV
 
-$ curl "bible.ricotta.dev?book=John&chapter=3&v=ylt"
+$ curl "bible.ricotta.dev?book=John&chapter=3&version=ylt"
 ```
 
 ### These options can be displayed with the command
@@ -187,8 +188,3 @@ $ curl "bible.ricotta.dev?book=John&chapter=3&v=ylt"
 ```sh
 $ curl bible.ricotta.dev/versions
 ```
-
-### TODO
-
-- Always return full chapter name.
-- Improve separate DB setup.
