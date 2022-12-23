@@ -136,7 +136,10 @@ async def as_arguments_book_chapter_verse(
         book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
         chapter = str(randint(1, 10))
         verse = f"{randint(1,5)}-{randint(6,10)}"
-        options = Options()
+        if request.headers.get("x-option") == "docs":
+            options = Options(text_only=True, verse_numbers=True)
+        else:
+            options = Options()
         response, book = query_multiple_verses_one_chapter(
             book, chapter, verse, options
         )
@@ -152,6 +155,18 @@ async def as_arguments_book_chapter_verse(
             content=full_book.get_content()
             + "\nTry 'curl bible.ricotta.dev/help' for more information.\n"
         )
+    elif book != None and chapter != None and verse == None:
+        response, book = query_entire_chapter(book, chapter, options)
+        if response.is_error():
+            return f"Unable to print verse. Reason {response.get_content()}"
+
+        # Render the book with all specified options
+        full_book = parse_db_response(
+            result=response,
+            user_options=options,
+            queried_verse=f"{book} {chapter}",
+        )
+        return PlainTextResponse(content=full_book.get_content())
     else:
         verse_num = validate_verses([verse])
         if verse_num != 0:
@@ -195,7 +210,8 @@ async def random():
     book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
     chapter = str(randint(1, 10))
     verse = f"{randint(1,5)}-{randint(6,10)}"
-    options = Options()
+
+    options = Options(text_only=True)
     response, book = query_multiple_verses_one_chapter(book, chapter, verse, options)
     if response.is_error():
         return f"Unable to print verse. Reason {response.get_content()}"
@@ -281,21 +297,24 @@ The following options are supported:
     • 'w' or 'width' - how many characters will be displayed in each line of the book.
         default value: 80
 
-    • 'nc' or 'no_color' - display the returned book without terminal colors
-        default value: False
-
-    • 'c' or 'color' - display the returned book with terminal colors
+    • 'c' or 'color_text' - display the returned book with terminal colors
         default value: True
 
-    • 't' or 'text' - only returned the unformatted text.
+    • 't' or 'text_only' - only returned the unformatted text.
+        deafult value: False
+
+    • 'n' or 'verse_number' - Display the associated verse numbers in superscript.
+        Default value: False
 
     • 'v' or 'version' - choose which version of the bible to use.
         Default value: ASV (American Standard Version)
         Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
 
-    These options can be combined:
-        curl bible.ricotta.dev/John:3:15:John:4:15?options=l=50,w=85,nc,v=BBE
-
+    These options can be combined on a single parameter for convenience:
+        curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE
+    But may also be separated in key value pairs as parameters:
+        curl "bible.ricotta.dev/John:3:15?length=40&color_text=False"
+        
 Check out the interactive help menu here: https://bible.ricotta.dev/docs
 
 Full information can be found on the README here: https://github.com/connorricotta/curl_bible
