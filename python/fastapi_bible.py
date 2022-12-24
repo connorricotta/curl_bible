@@ -696,7 +696,7 @@ def bookname_to_bookid(book: str, database_connection) -> str:
     Convert a book name into the ID of the book (number in bible)
     so it can be queried.
     """
-    db_cmd = "SELECT b FROM key_abbreviations_english WHERE a=%s AND p=1"
+    db_cmd = "SELECT b FROM key_abbreviations_english WHERE a=%s"
     db_parameters = (book,)
     result = query_db(
         db_conn=database_connection,

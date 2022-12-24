@@ -284,7 +284,9 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
                 second_text_index = ceil(length / 2) + i
 
             if i == (length // 2 - 1):
-                if len(formatted_text[second_text_index]) >= page_width - 3:
+                if len(formatted_text) == second_text_index and (
+                    len(formatted_text[second_text_index]) >= page_width - 3
+                ):
                     formatted_text[second_text_index] = (
                         formatted_text[second_text_index][:-3] + "..."
                     )
@@ -326,7 +328,10 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
 
         except Exception as e:
             print(e)
-            warning("Thing no work " + str(e))
+            import os,sys,traceback
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            tb = traceback.extract_tb(exc_tb)[-1]
+            # warning("Thing no work " + str(e))
             # TODO add exeception logging and fix bug here
             continue
 
