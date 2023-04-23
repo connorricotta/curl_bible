@@ -30,5 +30,5 @@ toml==0.10.2
 typing_extensions==4.4.0
 uvicorn==0.18.3
 virtualenv==20.14.1
-Werkzeug==2.1.2
+Werkzeug==2.2.3
 zipp==3.8.0
