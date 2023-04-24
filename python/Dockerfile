@@ -1,10 +1,11 @@
-FROM python:3.9
+FROM python:3.10
 
-WORKDIR /usr/src/app
+WORKDIR /code
 
-COPY . .
+COPY ./requirements.txt /code/requirements.txt
+COPY ./.env /code
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-RUN pip install --no-cache-dir -r requirements.txt
-RUN chmod +x docker-start.sh
+COPY ./ /code/app
 
-CMD ["./docker-start.sh"]
+CMD ["uvicorn", "app.fastapi_bible:app", "--host", "0.0.0.0", "--port", "10000"]

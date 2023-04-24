@@ -1,14 +1,13 @@
 # Standard Library Imports
 from logging import basicConfig, critical, warning
-from os import getenv, mkdir, path
-from pathlib import Path
+from os import getenv, mkdir, path, getcwd, chdir
 from random import choice, randint
 from re import search
-from typing import Union
+from typing import Union, Annotated
 
 # Module Imports
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query, Response, status
+from fastapi import Depends, FastAPI, Query, Response, status, Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import (
     get_redoc_html,
@@ -21,7 +20,7 @@ from mysql.connector import Error, connect
 from starlette import requests
 
 # Sub-directory imports
-from config import *
+from app.config import *
 
 """
 Ship the entire swagger/redoc stack to ensure that requests from docs are appended
@@ -29,7 +28,7 @@ with a header 'X-Options': 'docs'. This allows nginx to tell which requests are 
 docs, and which are regular web browsers (as they have the same User Agent)
 """
 app = FastAPI(docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -82,12 +81,6 @@ async def startup():
     """
     global DB_CONFIG
 
-    if not path.exists(".env"):
-        critical("Cannot load DB config file, check README in GitHub repo")
-        exit(1)
-    dotenv_path = Path(".env")
-    load_dotenv(dotenv_path=dotenv_path)
-
     if not path.exists("log"):
         mkdir("log")
     basicConfig(
@@ -96,6 +89,13 @@ async def startup():
         format="%(asctime)s | Level:%(levelname)s | Logger:%(name)s | Src:%(filename)s.%(funcName)s@%(lineno)d | Msg:%(message)s",
         datefmt="%m/%d/%y %I:%M:%S %p %z (%Z)",
     )
+
+    chdir("./app")
+    if not path.exists(".env"):
+        critical("Cannot load DB config file, check README in GitHub repo")
+        exit(1)
+    load_dotenv()
+    chdir("../")
 
     DB_CONFIG = {
         "db_host": getenv("DB_HOST"),
@@ -106,13 +106,18 @@ async def startup():
     }
     if None in DB_CONFIG.values():
         critical("All values from the .env file could not be pulled.")
+        critical(DB_CONFIG.values())
         exit(1)
 
 
 @app.get("/")
 async def as_arguments_book_chapter_verse(
     request: requests.Request,
-    book: Union[str, None] = Query(default=None, max_length=25),
+    # book: Annotated[str, Path(title="The ID of the item to get")],
+    # book: Annotated[str | None, Path(title="The ID of the item to get")] = None,
+    # chapter: Annotated[str | None, Path(title="The ID of the item to get")] = None,
+    # verse: Annotated[str | None, Path(title="The ID of the item to get")] = None,
+    book: Union[str | None] = Query(default=None),
     chapter: Union[int, None] = Query(default=None, ge=0, le=50),
     verse: Union[str, None] = Query(default=None, regex=VERSE_REGEX),
     options: Options = Depends(),
@@ -191,136 +196,6 @@ async def as_arguments_book_chapter_verse(
             queried_verse=f"{book} {chapter}:{verse}",
         )
     return PlainTextResponse(content=full_book.get_content())
-
-
-@app.get("/")
-async def random():
-    """
-    Randomly selects a bible passage and returns it.
-
-    Also includes a message to direct the user on how to use the application.
-
-    Args:
-        None
-    Returns:
-        book(str): A string containing the random verse with default options
-    Raises:
-        None
-    """
-    book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
-    chapter = str(randint(1, 10))
-    verse = f"{randint(1,5)}-{randint(6,10)}"
-
-    options = Options(text_only=True)
-    response, book = query_multiple_verses_one_chapter(book, chapter, verse, options)
-    if response.is_error():
-        return f"Unable to print verse. Reason {response.get_content()}"
-
-    full_book = parse_db_response(
-        result=response, user_options=options, queried_verse=f"{book} {chapter}:{verse}"
-    )
-
-    return PlainTextResponse(
-        content=full_book.get_content()
-        + "\nTry 'curl bible.ricotta.dev/help' for more information.\n"
-    )
-
-
-@app.get("/versions")
-def show_bible_versions():
-    """
-    Return a list of the bibles supported by this webapp.
-    Taken from the 'bible_version_key' table in the DB.
-
-    Args
-        None
-    Returns:
-        (str): A string containing the help message
-    Raises:
-        None
-    """
-    return PlainTextResponse(
-        content="""
-    All current supported versions of the Bible.
-    Use the value in 'Version Name' to use that version of the bible, such as:
-        curl bible.ricotta.dev/John:3:15-19?version=BBE
-        curl bible.ricotta.dev/John:3:15-19?options=version=BBE
-    
-    King James Version (KVJ) is the default version
-
-    ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
-    │ Version Name │ Language │ Name of version             │ Copyright     │
-    ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
-    │     ASV      │ English  │ American Standard Version   │ Public Domain │
-    │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
-    │     KJV      │ English  │ King James Version          │ Public Domain │
-    │     WEB      │ English  │ World English Bible         │ Public Domain │
-    │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
-    ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
-""",
-        status_code=status.HTTP_200_OK,
-    )
-
-
-@app.get("/help")
-def display_help():
-    """
-    Display a help message detailing all supported query methods and options.
-
-    Args:
-        None
-    Returns:
-        book(str): A string containg all supported query methods and options.
-    Raises:
-        None
-    """
-    return PlainTextResponse(
-        content="""
-   ______           __   ____  _ __    __
-  / ____/_  _______/ /  / __ )(_) /_  / /__
- / /   / / / / ___/ /  / __  / / __ \\/ / _ \\
-/ /___/ /_/ / /  / /  / /_/ / / /_/ / /  __/
-\\____/\\__,_/_/  /_/  /_____/_/_.___/_/\\___/
-
-Curl Bible - Easily access the bible through curl (HTTPie is also supported)
-
-Supports the following query types (GET):
-    • curl bible.ricotta.dev/John:3:15-19
-    • curl bible.ricotta.dev/John/3/15-19
-    • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
-    • curl bible.ricotta.dev/John:3:15:John:4:15
-
-The following options are supported:
-    • 'l' or 'length' - the number of lines present in the book
-        default value: 20
-
-    • 'w' or 'width' - how many characters will be displayed in each line of the book.
-        default value: 80
-
-    • 'c' or 'color_text' - display the returned book with terminal colors
-        default value: True
-
-    • 't' or 'text_only' - only returned the unformatted text.
-        deafult value: False
-
-    • 'n' or 'verse_number' - Display the associated verse numbers in superscript.
-        Default value: False
-
-    • 'v' or 'version' - choose which version of the bible to use.
-        Default value: ASV (American Standard Version)
-        Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
-
-    These options can be combined on a single parameter for convenience:
-        curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE
-    But may also be separated in key value pairs as parameters:
-        curl "bible.ricotta.dev/John:3:15?length=40&color_text=False"
-        
-Check out the interactive help menu here: https://bible.ricotta.dev/docs
-
-Full information can be found on the README here: https://github.com/connorricotta/curl_bible
-""",
-        status_code=status.HTTP_200_OK,
-    )
 
 
 @app.get("/{quote}")
@@ -440,8 +315,8 @@ async def colon_delimited_book_chapter_verse(
 @app.get("/{book}/{chapter}")
 async def as_slashes_book_chapter(
     request: requests.Request,
-    book: str = Query(default=..., min_length=4, max_length=20),
-    chapter: int = Query(default=..., ge=0, lt=1000),
+    book: str = Path(default=..., min_length=4, max_length=20),
+    chapter: int = Path(default=..., ge=0, lt=1000),
     options: Options = Depends(),
 ):
     options.update(request)
@@ -456,12 +331,109 @@ async def as_slashes_book_chapter(
     return PlainTextResponse(content=full_book.get_content())
 
 
+@app.get("/versions")
+def show_bible_versions():
+    """
+    Return a list of the bibles supported by this webapp.
+    Taken from the 'bible_version_key' table in the DB.
+
+    Args
+        None
+    Returns:
+        (str): A string containing the help message
+    Raises:
+        None
+    """
+    return PlainTextResponse(
+        content="""
+    All current supported versions of the Bible.
+    Use the value in 'Version Name' to use that version of the bible, such as:
+        curl bible.ricotta.dev/John:3:15-19?version=BBE
+        curl bible.ricotta.dev/John:3:15-19?options=version=BBE
+    
+    King James Version (KVJ) is the default version
+
+    ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
+    │ Version Name │ Language │ Name of version             │ Copyright     │
+    ├──────────────┼──────────┼─────────────────────────────┼───────────────┤
+    │     ASV      │ English  │ American Standard Version   │ Public Domain │
+    │     BBE      │ English  │ Bible in Basic English      │ Public Domain │
+    │     KJV      │ English  │ King James Version          │ Public Domain │
+    │     WEB      │ English  │ World English Bible         │ Public Domain │
+    │     YLT      │ English  │ Young's Literal Translation │ Public Domain │
+    ╰──────────────┴──────────┴─────────────────────────────┴───────────────╯
+""",
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@app.get("/help")
+def display_help():
+    """
+    Display a help message detailing all supported query methods and options.
+
+    Args:
+        None
+    Returns:
+        book(str): A string containg all supported query methods and options.
+    Raises:
+        None
+    """
+    return PlainTextResponse(
+        content="""
+   ______           __   ____  _ __    __
+  / ____/_  _______/ /  / __ )(_) /_  / /__
+ / /   / / / / ___/ /  / __  / / __ \\/ / _ \\
+/ /___/ /_/ / /  / /  / /_/ / / /_/ / /  __/
+\\____/\\__,_/_/  /_/  /_____/_/_.___/_/\\___/
+
+Curl Bible - Easily access the bible through curl (HTTPie is also supported)
+
+Supports the following query types (GET):
+    • curl bible.ricotta.dev/John:3:15-19
+    • curl bible.ricotta.dev/John/3/15-19
+    • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
+    • curl bible.ricotta.dev/John:3:15:John:4:15
+
+The following options are supported:
+    • 'l' or 'length' - the number of lines present in the book
+        default value: 20
+
+    • 'w' or 'width' - how many characters will be displayed in each line of the book.
+        default value: 80
+
+    • 'c' or 'color_text' - display the returned book with terminal colors
+        default value: True
+
+    • 't' or 'text_only' - only returned the unformatted text.
+        deafult value: False
+
+    • 'n' or 'verse_number' - Display the associated verse numbers in superscript.
+        Default value: False
+
+    • 'v' or 'version' - choose which version of the bible to use.
+        Default value: ASV (American Standard Version)
+        Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
+
+    These options can be combined on a single parameter for convenience:
+        curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE
+    But may also be separated in key value pairs as parameters:
+        curl "bible.ricotta.dev/John:3:15?length=40&color_text=False"
+        
+Check out the interactive help menu here: https://bible.ricotta.dev/docs
+
+Full information can be found on the README here: https://github.com/connorricotta/curl_bible
+""",
+        status_code=status.HTTP_200_OK,
+    )
+
+
 @app.get("/{book}/{chapter}/{verse}")
 async def as_slashes_book_chapter_verse(
     request: requests.Request,
-    book: str = Query(default=..., min_length=4, max_length=20),
-    chapter: int = Query(default=..., ge=0, lt=1000),
-    verse: str = Query(default=..., regex=VERSE_REGEX),
+    book: str = Path(default=..., min_length=4, max_length=20),
+    chapter: int = Path(default=..., ge=0, lt=1000),
+    verse: str = Path(default=..., regex=VERSE_REGEX),
     options: Options = Depends(),
 ):
     options.update(request)
@@ -491,12 +463,12 @@ async def as_slashes_book_chapter_verse(
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
 async def as_slashes_book1_chapter1_verse1_book2_chapter2_verse2(
     request: requests.Request,
-    book_1: str = Query(default=..., min_length=4, max_length=25),
-    book_2: str = Query(default=..., min_length=4, max_length=25),
-    chapter_1: int = Query(default=..., le=25),
-    chapter_2: int = Query(default=..., le=25),
-    verse_1: str = Query(default=..., regex=VERSE_REGEX),
-    verse_2: str = Query(default=..., regex=VERSE_REGEX),
+    book_1: str = Path(default=..., min_length=4, max_length=25),
+    book_2: str = Path(default=..., min_length=4, max_length=25),
+    chapter_1: int = Path(default=..., le=25),
+    chapter_2: int = Path(default=..., le=25),
+    verse_1: str = Path(default=..., regex=VERSE_REGEX),
+    verse_2: str = Path(default=..., regex=VERSE_REGEX),
     options: Options = Depends(),
 ):
     options.update(request)
