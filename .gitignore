@@ -175,3 +175,6 @@ cython_debug/
 python/todo
 python/index.html
 python/.prettierignore
+python/log/bible.log.old
+python/requirements.txt.old
+python/pipfile.old
