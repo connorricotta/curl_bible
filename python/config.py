@@ -4,7 +4,11 @@ from textwrap import TextWrapper
 from logging import basicConfig, INFO, warning
 from pydantic import BaseModel, Field, validator
 
-from app.book_config import Book
+try:
+    from app.book_config import Book
+except ImportError:
+    from book_config import Book
+
 
 COLOR_TEXT_DEFAULT = True
 TEXT_ONLY_DEFAULT = False
