@@ -1,5 +1,3 @@
--i https://pypi.org/simple
---extra-index-url https://pypi.python.org/simple
 anyio==3.6.2
 attrs==23.1.0
 automat==22.10.0

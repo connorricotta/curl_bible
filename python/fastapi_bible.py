@@ -340,7 +340,8 @@ async def colon_delimited_book_chapter_verse(
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
             # Parse request into arguments
-            (book_1, chapter_1, verse_1, book_2, chapter_2, verse_2) = quote.split(":")
+            (book_1, chapter_1, verse_1, book_2,
+             chapter_2, verse_2) = quote.split(":")
             response, book_1, book_2 = query_multiple_verses(
                 starting_book=book_1,
                 starting_chapter=chapter_1,
@@ -417,7 +418,7 @@ async def colon_delimited_book_chapter_verse(
 @app.get("/{book}/{chapter}")
 async def as_slashes_book_chapter(
     request: requests.Request,
-    book: str = Path(default=..., min_length=4, max_length=20),
+    book: str = Path(default=..., min_length=3, max_length=20),
     chapter: int = Path(default=..., ge=0, lt=1000),
     options: Options = Depends(),
 ):
@@ -436,7 +437,7 @@ async def as_slashes_book_chapter(
 @app.get("/{book}/{chapter}/{verse}")
 async def as_slashes_book_chapter_verse(
     request: requests.Request,
-    book: str = Path(default=..., min_length=4, max_length=20),
+    book: str = Path(default=..., min_length=3, max_length=20),
     chapter: int = Path(default=..., ge=0, lt=1000),
     verse: str = Path(default=..., regex=VERSE_REGEX),
     options: Options = Depends(),
@@ -468,8 +469,8 @@ async def as_slashes_book_chapter_verse(
 @app.get("/{book_1}/{chapter_1}/{verse_1}/{book_2}/{chapter_2}/{verse_2}")
 async def as_slashes_book1_chapter1_verse1_book2_chapter2_verse2(
     request: requests.Request,
-    book_1: str = Path(default=..., min_length=4, max_length=25),
-    book_2: str = Path(default=..., min_length=4, max_length=25),
+    book_1: str = Path(default=..., min_length=3, max_length=25),
+    book_2: str = Path(default=..., min_length=3, max_length=25),
     chapter_1: int = Path(default=..., le=25),
     chapter_2: int = Path(default=..., le=25),
     verse_1: str = Path(default=..., regex=VERSE_REGEX),
@@ -548,7 +549,8 @@ def connect_to_db():
         if conn.is_connected():
             return conn
     except Error as e:
-        critical(f"Cannot connect to DB! Attempting to connect on localhost {e}")
+        critical(
+            f"Cannot connect to DB! Attempting to connect on localhost {e}")
 
     # Try to connect to localhost if regular connection fails
     try:
@@ -591,7 +593,8 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
                     text = cursor.fetchall()
                     # Combine all returned fields into a single string.
                     return ReturnObject(
-                        Status.Success, " ".join([str(verse[0]) for verse in text])
+                        Status.Success, " ".join(
+                            [str(verse[0]) for verse in text])
                     )
             elif options is not None and options.verse_numbers is True:
                 # Ensure the verse numbers are also queried.
@@ -979,7 +982,8 @@ def query_multiple_verses(
     db_cmd = set_query_bible_version(options.version, "range")
     parameters = (starting_verse_id, ending_verse_id)
     if db_cmd is None:
-        warning(f"Cannot find bible version {starting_book_id} {ending_book_id}.")
+        warning(
+            f"Cannot find bible version {starting_book_id} {ending_book_id}.")
         return (
             ReturnObject(Status.Failure, "Invalid Bible Version\n"),
             starting_book,
