@@ -1,14 +1,11 @@
 from enum import Enum
+from logging import INFO, basicConfig
 from math import ceil
 from textwrap import TextWrapper
-from logging import basicConfig, INFO, warning
+
 from pydantic import BaseModel, Field, validator
 
-try:
-    from app.book_config import Book
-except ImportError:
-    from book_config import Book
-
+from curl_bible.book_config import Book
 
 COLOR_TEXT_DEFAULT = True
 TEXT_ONLY_DEFAULT = False
@@ -332,12 +329,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
 
         except Exception as e:
             print(e)
-            import os, sys, traceback
 
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            tb = traceback.extract_tb(exc_tb)[-1]
-            # warning("Thing no work " + str(e))
-            # TODO add exeception logging and fix bug here
             continue
 
     final_bottom_single_pg = (

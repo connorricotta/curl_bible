@@ -25,7 +25,7 @@ class Book:
         brown = "\33[38;2;160;82;45m\33[1m"
         gold = "\33[38;5;229m"
         white = "\33[38;5;231m"
-        white_back = "\33[47m"
+        # white_back = "\33[47m"
         end = "\33[0m"
         self.book_no_color = {
             "top_level": "_",

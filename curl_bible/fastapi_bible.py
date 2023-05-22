@@ -1,13 +1,13 @@
 # Standard Library Imports
 from logging import basicConfig, critical, warning
-from os import getenv, mkdir, path, getcwd, chdir
+from os import getenv, mkdir, path
 from random import choice, randint
 from re import search
-from typing import Union, Annotated
+from typing import Union
 
 # Module Imports
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query, Response, status, Path
+from fastapi import Depends, FastAPI, Path, Query, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import (
     get_redoc_html,
@@ -19,22 +19,27 @@ from fastapi.staticfiles import StaticFiles
 from mysql.connector import Error, connect
 from starlette import requests
 
-# Sub-directory imports
-try:
-    from app.config import *
-except ImportError:
-    from config import *
+# Local Imports
+from curl_bible.config import (
+    ENTIRE_CHAPTER_REGEX,
+    MULTI_SEMICOLON_REGEX,
+    REGULAR_TO_SUPERSCRIPT,
+    SINGLE_SEMICOLON_DASH_REGEX,
+    SINGLE_SEMICOLON_REGEX,
+    VERSE_REGEX,
+    Options,
+    ReturnObject,
+    Status,
+    create_book,
+)
 
 """
 Ship the entire swagger/redoc stack to ensure that requests from docs are appended
-with a header 'X-Options': 'docs'. This allows nginx to tell which requests are from the 
+with a header 'X-Options': 'docs'. This allows nginx to tell which requests are from the
 docs, and which are regular web browsers (as they have the same User Agent)
 """
 app = FastAPI(docs_url=None, redoc_url=None)
-try:
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
-except RuntimeError:
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -96,15 +101,11 @@ async def startup():
         datefmt="%m/%d/%y %I:%M:%S %p %z (%Z)",
     )
 
-    if not path.exists("./app"):
-        load_dotenv()
+    if not path.exists(".env"):
+        critical("Cannot load DB config file, check README in GitHub repo")
+        exit(1)
     else:
-        chdir("./app")
-        if not path.exists(".env"):
-            critical("Cannot load DB config file, check README in GitHub repo")
-            exit(1)
         load_dotenv()
-        chdir("../")
 
     DB_CONFIG = {
         "db_host": getenv("DB_HOST"),
@@ -138,7 +139,6 @@ def show_bible_versions():
     Use the value in 'Version Name' to use that version of the bible, such as:
         curl bible.ricotta.dev/John:3:15-19?version=BBE
         curl bible.ricotta.dev/John:3:15-19?options=version=BBE
-    
     King James Version (KVJ) is the default version
 
     ╭──────────────┬──────────┬─────────────────────────────┬───────────────╮
@@ -207,7 +207,6 @@ The following options are supported:
         curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE
     But may also be separated in key value pairs as parameters:
         curl "bible.ricotta.dev/John:3:15?length=40&color_text=False"
-        
 Check out the interactive help menu here: https://bible.ricotta.dev/docs
 
 Full information can be found on the README here: https://github.com/connorricotta/curl_bible
@@ -237,8 +236,9 @@ async def as_arguments_book_chapter_verse(
     Raises:
         None
     """
+    # TODO: fix ... on ?book=John&chapter=3
     options.update(request)
-    if book == None and chapter == None and verse == None:
+    if book is None and chapter is not None and verse is None:
         # Query random verse
         book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
         chapter = str(randint(1, 10))
@@ -262,7 +262,7 @@ async def as_arguments_book_chapter_verse(
             content=full_book.get_content()
             + "\nTry 'curl bible.ricotta.dev/help' for more information.\n"
         )
-    elif book != None and chapter != None and verse == None:
+    elif book is not None and chapter is not None and verse is None:
         response, book = query_entire_chapter(book, chapter, options)
         if response.is_error():
             return f"Unable to print verse. Reason {response.get_content()}"
@@ -340,8 +340,7 @@ async def colon_delimited_book_chapter_verse(
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
             # Parse request into arguments
-            (book_1, chapter_1, verse_1, book_2,
-             chapter_2, verse_2) = quote.split(":")
+            (book_1, chapter_1, verse_1, book_2, chapter_2, verse_2) = quote.split(":")
             response, book_1, book_2 = query_multiple_verses(
                 starting_book=book_1,
                 starting_chapter=chapter_1,
@@ -549,8 +548,7 @@ def connect_to_db():
         if conn.is_connected():
             return conn
     except Error as e:
-        critical(
-            f"Cannot connect to DB! Attempting to connect on localhost {e}")
+        critical(f"Cannot connect to DB! Attempting to connect on localhost {e}")
 
     # Try to connect to localhost if regular connection fails
     try:
@@ -593,8 +591,7 @@ def query_db(db_conn, db_cmd: str, parameters: tuple, options: Options) -> str:
                     text = cursor.fetchall()
                     # Combine all returned fields into a single string.
                     return ReturnObject(
-                        Status.Success, " ".join(
-                            [str(verse[0]) for verse in text])
+                        Status.Success, " ".join([str(verse[0]) for verse in text])
                     )
             elif options is not None and options.verse_numbers is True:
                 # Ensure the verse numbers are also queried.
@@ -746,14 +743,14 @@ def query_entire_chapter(book: str, chapter: int, options: Options) -> ReturnObj
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
-        warning(f"Bible book not found!")
+        warning("Bible book not found!")
         return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     book = get_full_book_name(book_id, book, db_conn)
     # fmt: off
     verse_id = (
         "0" * (2 - len(book_id)) + book_id +
-        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(str(chapter))) + str(chapter) +
         "%%"
     )
     # fmt: on
@@ -804,14 +801,14 @@ def query_single_verse(
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
-        warning(f"Bible book not found!")
+        warning("Bible book not found!")
         return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
     book = get_full_book_name(book_id, book, db_conn)
     # fmt: off
     verse_id = (
         "0" * (2 - len(book_id)) + book_id +
-        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(str(chapter))) + str(chapter) +
         "0" * (3 - len(verse)) + verse
     )
     # fmt: on
@@ -870,7 +867,7 @@ def query_multiple_verses_one_chapter(
     # Correlate book name to book id
     book_id = bookname_to_bookid(book, db_conn)
     if book_id == "" and not str.isnumeric(book_id):
-        warning(f"Bible book not found!")
+        warning("Bible book not found!")
         return (ReturnObject(Status.Failure, f"Book '{book}' not found\n"), book)
 
     # Ensure the full name of the book is returned ('1Jo'->'1 John')
@@ -878,12 +875,12 @@ def query_multiple_verses_one_chapter(
     # fmt: off
     starting_verse_id = (
         "0" * (2 - len(book_id)) + book_id +
-        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(str(chapter))) + str(chapter) +
         "0" * (3 - len(starting_verse)) + starting_verse
     )
     ending_verse_id = (
         "0" * (2 - len(book_id)) + book_id +
-        "0" * (3 - len(str(chapter))) + str(chapter) + 
+        "0" * (3 - len(str(chapter))) + str(chapter) +
         "0" * (3 - len(ending_verse)) + ending_verse
     )
     # fmt: on
@@ -954,7 +951,7 @@ def query_multiple_verses(
         or ending_book_id == ""
         and not str.isnumeric(ending_book_id)
     ):
-        warning(f"Bible book not found!")
+        warning("Bible book not found!")
         return (
             ReturnObject(
                 Status.Failure,
@@ -982,8 +979,7 @@ def query_multiple_verses(
     db_cmd = set_query_bible_version(options.version, "range")
     parameters = (starting_verse_id, ending_verse_id)
     if db_cmd is None:
-        warning(
-            f"Cannot find bible version {starting_book_id} {ending_book_id}.")
+        warning(f"Cannot find bible version {starting_book_id} {ending_book_id}.")
         return (
             ReturnObject(Status.Failure, "Invalid Bible Version\n"),
             starting_book,

@@ -1,0 +1,48 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        stages: [commit]
+        types: [python]
+        entry: pipenv run pytest
+        language: system
+        # pass_filenames: false
+        # always_run: true
+
+      - id: black
+        name: black
+        stages: [commit]
+        types: [python]
+        entry: pipenv run black .
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: isort
+        name: isort
+        stages: [commit]
+        types: [python]
+        entry: pipenv run isort .
+        args: ["--profile", "black"]
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: flake8
+        name: flake8
+        stages: [commit]
+        types: [python]
+        entry: pipenv run flake8 --exclude .venv .
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: bandit
+        name: bandit
+        stages: [commit]
+        types: [python]
+        entry: pipenv run bandit .
+        language: system
+        pass_filenames: false
+        always_run: true

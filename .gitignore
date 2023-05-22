@@ -5,16 +5,12 @@ lib
 *.log
 config
 __pycache__/
-*test*.*
 .vscode/
-*.cfg
 pyvenv.cfg
-.pre-commit-config.yaml
-python/curl_bible
 README_test.md
 README_old.md
 docker/.env_old
-.env
+*.env*
 
 
 # The following was taken from:
@@ -178,3 +174,4 @@ python/.prettierignore
 python/log/bible.log.old
 python/requirements.txt.old
 python/pipfile.old
+.env
