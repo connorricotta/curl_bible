@@ -22,5 +22,3 @@ RUN chown solomon:solomon /code
 USER solomon
 
 CMD ["bash", "curl_bible/docker-start.sh"]
-
-# CMD ["uvicorn", "app.fastapi_bible:app", "--host", "0.0.0.0", "--port", "10000"]
