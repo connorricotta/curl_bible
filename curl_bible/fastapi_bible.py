@@ -101,11 +101,13 @@ async def startup():
         datefmt="%m/%d/%y %I:%M:%S %p %z (%Z)",
     )
 
-    if not path.exists(".env"):
+    if path.exists(".env"):
+        load_dotenv()
+    elif path.exists("curl_bible/.env"):
+        load_dotenv()
+    else:
         critical("Cannot load DB config file, check README in GitHub repo")
         exit(1)
-    else:
-        load_dotenv()
 
     DB_CONFIG = {
         "db_host": getenv("DB_HOST"),
@@ -238,7 +240,7 @@ async def as_arguments_book_chapter_verse(
     """
     # TODO: fix ... on ?book=John&chapter=3
     options.update(request)
-    if book is None and chapter is not None and verse is None:
+    if book is None and chapter is None and verse is None:
         # Query random verse
         book = choice(["Matthew", "Mark", "Luke", "John", "Rev"])
         chapter = str(randint(1, 10))

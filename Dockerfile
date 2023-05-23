@@ -2,11 +2,13 @@ FROM python:3.10
 
 WORKDIR /code
 
-COPY ./requirements.txt /code/requirements.txt
+COPY Pipfile Pipfile.lock /code/
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install pipenv
+RUN pipenv install --system --deploy
 
-COPY . . 
+COPY curl_bible/ ./curl_bible
+COPY .env .
 
 # Run as non-root
 ARG UID=10000
@@ -19,6 +21,6 @@ RUN chown solomon:solomon /code
 
 USER solomon
 
-CMD ["bash", "docker-start.sh"]
+CMD ["bash", "curl_bible/docker-start.sh"]
 
 # CMD ["uvicorn", "app.fastapi_bible:app", "--host", "0.0.0.0", "--port", "10000"]
