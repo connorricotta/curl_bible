@@ -45,10 +45,6 @@ REGULAR_TO_SUPERSCRIPT = {
 
 
 class OptionsNames:
-    """
-    Contains
-    """
-
     short_to_long = {
         "c": "color_text",
         "l": "length",
@@ -250,11 +246,6 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
     final_book_middle_array = []
     page_width = width // 2
     # Add three lines to the start of the verses
-    # if len(request_verse) == 3:
-    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}"
-    # elif len(request_verse) == 6:
-    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
-    # else:
     formatted_verse = "".join(request_verse)
     spaced_verse = (page_width - len(formatted_verse)) // 2
     formatted_text.insert(0, "")
