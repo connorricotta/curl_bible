@@ -5,7 +5,7 @@ repos:
         name: pytest-check
         stages: [commit]
         types: [python]
-        entry: pipenv run pytest curl_bible/tests/fastapi_bible_test.py
+        entry: pipenv run pytest curl_bible/tests
         language: system
         # pass_filenames: false
         # always_run: true

@@ -168,7 +168,7 @@ class Options(BaseModel):
                         self.version = value.upper()
                 elif key == "n":
                     self.verse_numbers = is_bool(value)
-        return ""
+        return " "
 
 
 class Status(Enum):
