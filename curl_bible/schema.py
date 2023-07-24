@@ -15,11 +15,11 @@ class Hero(Base):
 
 
 class KeyAbbreviationsEnglish(Base):
-    __tablename__ = "key_abbrevations_english"
+    __tablename__ = "key_abbreviations_english"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    a = Column(String(255))
-    b = Column(Integer())
-    p = Column(Integer())
+    name = Column(String(255))
+    book = Column(Integer())
+    primary = Column(Integer())
 
 
 class TableASV(Base):

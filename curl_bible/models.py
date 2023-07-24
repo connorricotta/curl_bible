@@ -18,9 +18,9 @@ class UserBase(BaseModel):
 
 class KeyAbbreviationsEnglish(BaseModel):
     id = int
-    a = str
-    b = int
-    p = int
+    name = str
+    book = int
+    primary = int
 
     class Config:
         orm_mode = True
