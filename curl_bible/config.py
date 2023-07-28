@@ -12,8 +12,10 @@ TEXT_ONLY_DEFAULT = False
 VERSION_DEFAULT = "ASV"
 LENGTH_DEFAULT = 60
 WIDTH_DEFAULT = 80
+JSON_DEFAULT = False
 OPTIONS_DEFAULT = ""
 VERSE_NUMBERS = True
+
 
 # Matches '3','999','1-999','999-1'
 VERSE_REGEX = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
@@ -52,6 +54,7 @@ class OptionsNames:
         "w": "width",
         "v": "version",
         "n": "verse_numbers",
+        "j": "return_json",
     }
 
     values = {
@@ -61,6 +64,7 @@ class OptionsNames:
         "width": WIDTH_DEFAULT,
         "version": VERSION_DEFAULT,
         "verse_numbers": VERSE_NUMBERS,
+        "return_json": JSON_DEFAULT,
     }
 
     def to_long(self, option):
@@ -80,6 +84,7 @@ class Options(BaseModel):
     length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
     width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
     verse_numbers: bool | None = Field(default=VERSE_NUMBERS)
+    return_json: bool | None = Field(default=JSON_DEFAULT)
     options: str | None
 
     @validator("options")
@@ -97,6 +102,7 @@ class Options(BaseModel):
             "width": WIDTH_DEFAULT,
             "version": VERSION_DEFAULT,
             "verse_numbers": VERSE_NUMBERS,
+            "return_json": JSON_DEFAULT,
         }
         if user_options == "" or user_options is None:
             return user_options
@@ -125,6 +131,7 @@ class Options(BaseModel):
         values["color_text"] = is_bool(default_values.get("color_text"))
         values["text_only"] = is_bool(default_values.get("text_only"))
         values["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
+        values["return_json"] = is_bool(default_values.get("return_json"))
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
         if (type(default_values.get("length")) == int) or (
@@ -147,7 +154,7 @@ class Options(BaseModel):
         user Options object
         """
         params = dict(user_options.query_params)
-        options_set = set(("l", "w", "v", "t", "c", "n"))
+        options_set = set(("l", "w", "v", "t", "c", "n", "j"))
         # Only parse them if the user passes in options with one of the values in 'options_set'
         short_options = options_set.intersection(params)
         if short_options is not None:
@@ -168,6 +175,8 @@ class Options(BaseModel):
                         self.version = value.upper()
                 elif key == "n":
                     self.verse_numbers = is_bool(value)
+                elif key == "j":
+                    self.return_json = is_bool(value)
         return " "
 
 

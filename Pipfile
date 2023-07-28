@@ -18,6 +18,7 @@ httpx = "*"
 sqlalchemy = "*"
 sqlmodel = "*"
 mariadb = "*"
+pydantic = "==1.10.11"
 
 [dev-packages]
 flake8 = "*"
