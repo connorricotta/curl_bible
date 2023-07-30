@@ -100,13 +100,15 @@ async def query_many(
     if options.return_json:
         kwargs["request_verse"] = request_verse
         return kwargs
+    elif options.text_only:
+        return PlainTextResponse(content=kwargs.get("text"))
     else:
         result = create_book(
             bible_verse=kwargs.get("text"),
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result.content)
+        return PlainTextResponse(content=result.content)
 
 
 @app.get("/{book}/{chapter}")
@@ -207,34 +209,6 @@ async def mutli_verse_same_chapter(
         bible_verse=book_text,
         user_options=options,
         request_verse=f"{book} {chapter}:{verse_start}-{verse_end}",
-    )
-    return PlainTextResponse(content=result.content)
-
-
-@app.get("/{book}/{chapter_start}/{verse_start}/{chapter_end}/{verse_end}")
-async def mutli_verse_different_chapter(
-    book: str,
-    chapter_start: str,
-    verse_start: str,
-    chapter_end: str,
-    verse_end: str,
-    db: Session = Depends(get_database_session),
-    options: Options = Depends(),
-):
-    arguments = flatten_args(
-        db=db,
-        book=book,
-        chapter_start=chapter_start,
-        chapter_end=chapter_end,
-        verse_start=verse_start,
-        verse_end=verse_end,
-        options=options,
-    )
-    book_text = multi_query(db, **arguments)
-    result = create_book(
-        bible_verse=book_text,
-        user_options=options,
-        request_verse=f"{book} {chapter_start}:{verse_start} - {chapter_end}:{verse_end}",
     )
     return PlainTextResponse(content=result.content)
 

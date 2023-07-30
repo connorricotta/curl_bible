@@ -292,7 +292,14 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
                         formatted_text[second_text_index][:-3] + "..."
                     )
                 else:
-                    formatted_text[second_text_index] += "..."
+                    if len(formatted_text[second_text_index] + "...") > page_width - 2:
+                        # Strip out extra ... if they exist
+                        formatted_text[second_text_index] += "..."
+                        formatted_text[second_text_index] = formatted_text[
+                            second_text_index
+                        ][: page_width - 2]
+                    else:
+                        formatted_text[second_text_index] += "..."
             # If too big for second text, only display the first
             if i < len(formatted_text) and second_text_index >= len(formatted_text):
                 final_book_middle_array.append(
