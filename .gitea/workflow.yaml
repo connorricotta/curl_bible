@@ -1,4 +1,4 @@
-name: Publish to Dockerhub
+name: Test, Publish Image, and Deploy
 
 on: [push]
 
