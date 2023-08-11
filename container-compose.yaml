@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  mariadb:
+    image: docker.io/library/mariadb:10.5
+    container_name: bible_db
+    hostname: "bible_db"
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+    restart: always
+    ports:
+      - 33060:3306
+  
+  curl_bible:
+    image: curl_bible
+    build:
+      # Allows .env to be used by both Docker-Compose and the Python image
+      context: ./
+    hostname: "curl_bible"
+    container_name: curl_bible
+    ports:
+      - 10000:10000
+    volumes:
+      # Allow logs to be viewed without entering the container.
+      - ./log:/code/curl_bible/log
+    restart: always
