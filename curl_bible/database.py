@@ -6,9 +6,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# from time import sleep
-
-
 load_dotenv()
 username = getenv("MYSQL_USER")
 password = getenv("MYSQL_PASSWORD")

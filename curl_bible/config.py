@@ -139,7 +139,7 @@ class Options(BaseModel):
             and int(default_values.get("length")) > 0
         ):
             values["length"] = int(default_values["length"])
-        if (type(default_values["width"]) == int) or (
+        if (default_values["width"] is int) or (
             str.isnumeric(default_values["width"]) and int(default_values["width"]) > 0
         ):
             values["width"] = int(default_values["width"])
@@ -205,7 +205,7 @@ class ReturnObject:
 
 
 def is_bool(bool_test):
-    if type(bool_test) == bool:
+    if bool_test is bool:
         return bool_test
     return bool_test.lower() in ("yes", "true", "t", "1")
 

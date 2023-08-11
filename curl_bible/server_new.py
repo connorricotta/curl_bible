@@ -6,8 +6,9 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from curl_bible import schema
-from curl_bible.config import Options, create_book
-from curl_bible.config_new import Settings, create_request_verse
+
+# from curl_bible.config import Options, create_book
+from curl_bible.config_new import Options, Settings, create_book, create_request_verse
 from curl_bible.database import engine, get_database_session
 
 settings = Settings()
@@ -68,7 +69,7 @@ async def as_arguments_book_chapter_verse(
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result.content)
+    return PlainTextResponse(content=result[0])
 
 
 @app.get("/{query}")
@@ -108,7 +109,7 @@ async def query_many(
             user_options=options,
             request_verse=request_verse,
         )
-        return PlainTextResponse(content=result.content)
+        return PlainTextResponse(content=result)
 
 
 @app.get("/{book}/{chapter}")
@@ -137,7 +138,7 @@ async def entire_chapter(
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result.content)
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{book}/{chapter}/{verse}")
@@ -184,7 +185,7 @@ async def flatten_out(
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result.content)
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{book}/{chapter}/{verse_start}/{verse_end}")
@@ -210,7 +211,7 @@ async def mutli_verse_same_chapter(
         user_options=options,
         request_verse=f"{book} {chapter}:{verse_start}-{verse_end}",
     )
-    return PlainTextResponse(content=result.content)
+    return PlainTextResponse(content=result)
 
 
 def multi_query(db, **kwargs) -> str:

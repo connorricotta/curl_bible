@@ -1,4 +1,11 @@
-from pydantic import BaseSettings
+from functools import lru_cache
+from logging import INFO, basicConfig
+from math import ceil
+from textwrap import TextWrapper
+
+from pydantic import BaseModel, BaseSettings, Field, validator
+
+from curl_bible.book_config import Book
 
 
 class Settings(BaseSettings):
@@ -28,6 +35,19 @@ class Settings(BaseSettings):
         "8": "⁸",
         "9": "⁹",
     }
+    COLOR_TEXT_DEFAULT: bool = True
+    TEXT_ONLY_DEFAULT: bool = False
+    VERSION_DEFAULT: str = "ASV"
+    LENGTH_DEFAULT: int = 60
+    WIDTH_DEFAULT: int = 80
+    JSON_DEFAULT: bool = False
+    OPTIONS_DEFAULT: str = ""
+    VERSE_NUMBERS: bool = True
+
+
+@lru_cache()
+def create_settings():
+    return Settings()
 
 
 def create_request_verse(**kwargs) -> str:
@@ -45,3 +65,303 @@ def create_request_verse(**kwargs) -> str:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}"
     elif set(kwargs.keys()) == {"book", "chapter", "verse"}:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse')}"
+
+
+def is_bool(self, bool_test: str) -> bool:
+    if bool_test is bool:
+        return bool_test
+    return bool_test.lower() in ("yes", "true", "t", "1")
+
+
+settings = create_settings()
+
+
+class OptionsNames:
+    short_to_long = {
+        "c": "color_text",
+        "l": "length",
+        "t": "text_only",
+        "w": "width",
+        "v": "version",
+        "n": "verse_numbers",
+        "j": "return_json",
+    }
+
+    values = {
+        "color_text": settings.COLOR_TEXT_DEFAULT,
+        "length": settings.LENGTH_DEFAULT,
+        "text_only": settings.TEXT_ONLY_DEFAULT,
+        "width": settings.WIDTH_DEFAULT,
+        "version": settings.VERSION_DEFAULT,
+        "verse_numbers": settings.VERSE_NUMBERS,
+        "return_json": settings.JSON_DEFAULT,
+    }
+
+    def to_long(self, option):
+        """
+        Return the full name of the option
+        """
+        if option in self.short_to_long:
+            return self.short_to_long[option]
+        else:
+            return option
+
+
+class Options(BaseModel):
+    color_text: bool | None = Field(default=True)
+    text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT)
+    version: str | None = Field(default=settings.VERSION_DEFAULT)
+    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0)
+    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0)
+    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS)
+    return_json: bool | None = Field(default=settings.JSON_DEFAULT)
+    options: str | None
+
+    @validator("options")
+    def contains_options(cls, user_options, values):
+        """
+        In case the user passes in a list of options all attached to the option parameter, parse them here.
+        Takes the argument "options=w=78,v=BBE,length=85,c=no", and update the options Object
+        """
+
+        default_options = OptionsNames()
+        default_values = default_options.values
+        if user_options == "" or user_options is None:
+            return user_options
+
+        # Parse the options string into its constitutent parts
+        # Turns string 'w=78,v=BBE,length=85,c=no' into list ['w=78', 'v=BBE', 'length=85', 'c=no']
+        parsed_option_string = (
+            user_options.replace("o=", "")
+            .replace("options=", "")
+            .replace("'", "")
+            .split(",")
+        )
+
+        option_list = [i.split("=") for i in parsed_option_string]
+
+        # Parse through the options and update the dictionary if the option is there
+        for option in option_list:
+            option_name = option[0]
+            option_value = option[1]
+
+            # If the user passes in a valid option, update the default value
+            #   Ex: 'l':45 will be converted into 'length':45 and replace the default value
+            default_values[default_options.to_long(option_name)] = option_value
+
+        # Update the options passed to FastAPI to match the default_options dict.
+        values["color_text"] = is_bool(default_values.get("color_text"))
+        values["text_only"] = is_bool(default_values.get("text_only"))
+        values["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
+        values["return_json"] = is_bool(default_values.get("return_json"))
+
+        # Ensure that 'width' or 'length' are integers and they are greater than 0
+        if (type(default_values.get("length")) == int) or (
+            str.isnumeric(default_values.get("length"))
+            and int(default_values.get("length")) > 0
+        ):
+            values["length"] = int(default_values["length"])
+        if (default_values["width"] is int) or (
+            str.isnumeric(default_values["width"]) and int(default_values["width"]) > 0
+        ):
+            values["width"] = int(default_values["width"])
+        if len(default_values["version"]) == 3:
+            values["version"] = default_values["version"].upper()
+
+        return user_options
+
+    def update(self, user_options: dict) -> str:
+        """
+        Parse 'small' arguments passed in separately like 'w=15&l=54' and update the
+        user Options object
+        """
+        params = dict(user_options.query_params)
+        options_set = set(("l", "w", "v", "t", "c", "n", "j"))
+        # Only parse them if the user passes in options with one of the values in 'options_set'
+        short_options = options_set.intersection(params)
+        if short_options is not None:
+            for key in short_options:
+                value = params[key]
+                if key == "l":
+                    if str.isnumeric(value) and int(value) > 0:
+                        self.length = int(value)
+                elif key == "w":
+                    if str.isnumeric(value) and int(value) > 0:
+                        self.width = int(value)
+                elif key == "c":
+                    self.color_text = is_bool(value)
+                elif key == "t":
+                    self.text_only = is_bool(value)
+                elif key == "v":
+                    if len(value) == 3:
+                        self.version = value.upper()
+                elif key == "n":
+                    self.verse_numbers = is_bool(value)
+                elif key == "j":
+                    self.return_json = is_bool(value)
+        return " "
+
+
+def create_book(bible_verse: str, user_options: Options, request_verse: dict):
+    """
+    start                middle                 end
+    |                    |                     |
+    V                    V                     V
+        ___________________ ___________________
+    .-/|                   ⋁                   |\\-. <─ top
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   |||| <─ middle
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||                   │                   ||||
+    ||||__________________ │ __________________|||| <─ bottom_single_pg
+    ||/===================\\│/===================\\|| <─ bottom_multi_pg
+    `--------------------~___~--------------------𝅪 <─ bottom_final_pg
+    This book is rendered using static parts (mostly the corners and the middle)
+    and the rest is generated dynamically based on the parameters passed in.
+    """
+    book = Book()
+    basicConfig(level=INFO, filename="config.log")
+
+    if user_options is not None:
+        length = user_options.length
+        width = user_options.width
+        if user_options.color_text:
+            book_parts = book.get_color()
+        else:
+            book_parts = book.get_no_color()
+        splitter = TextWrapper(width=(user_options.width // 2 - 2))
+
+    else:
+        width = 80
+        length = 20
+        splitter = TextWrapper(width=38)
+        book_parts = book.get_color()
+
+    formatted_text = splitter.wrap(bible_verse)
+    final_book_middle_array = []
+    page_width = width // 2
+    # Add three lines to the start of the verses
+    formatted_verse = "".join(request_verse)
+    spaced_verse = (page_width - len(formatted_verse)) // 2
+    formatted_text.insert(0, "")
+    formatted_text.insert(
+        0, " " * spaced_verse + formatted_verse + " " * (spaced_verse - 1)
+    )
+    formatted_text.insert(0, "")
+
+    # Generating the book in this way allows for the easy modification of
+    # book generation.
+    final_book_top = (
+        "    "
+        + book_parts["top_level"] * page_width
+        + " "
+        + book_parts["top_level"] * page_width
+        + "    \n"
+        + book_parts["top_start"]
+        + " " * (page_width - 1)
+        + book_parts["top_middle"]
+        + " " * (page_width - 1)
+        + book_parts["top_end"]
+    )
+
+    for i in range((length // 2)):
+        try:
+            if i < len(formatted_text):
+                text = formatted_text[i]
+                second_text_index = ceil(length / 2) + i
+
+            if i == (length // 2 - 1):
+                if len(formatted_text) == second_text_index and (
+                    len(formatted_text[second_text_index]) >= page_width - 3
+                ):
+                    formatted_text[second_text_index] = (
+                        formatted_text[second_text_index][:-3] + "..."
+                    )
+                else:
+                    if len(formatted_text[second_text_index] + "...") > page_width - 2:
+                        # Strip out extra ... if they exist
+                        formatted_text[second_text_index] += "..."
+                        formatted_text[second_text_index] = formatted_text[
+                            second_text_index
+                        ][: page_width - 2]
+                    else:
+                        formatted_text[second_text_index] += "..."
+            # If too big for second text, only display the first
+            if i < len(formatted_text) and second_text_index >= len(formatted_text):
+                final_book_middle_array.append(
+                    book_parts["middle_start"]
+                    + f" {text}"
+                    + " " * (page_width - (len(text) + 1))
+                    + book_parts["middle"]
+                    + " " * (page_width)
+                    + book_parts["middle_end"]
+                    + "\n"
+                )  # nopep8
+            # If too big for first, don't display any text
+            elif i >= len(formatted_text):
+                final_book_middle_array.append(
+                    book_parts["middle_start"]
+                    + " " * (page_width)
+                    + book_parts["middle"]
+                    + " " * (page_width)
+                    + book_parts["middle_end"]
+                    + "\n"
+                )  # nopep8
+            # Display text regularly
+            else:
+                final_book_middle_array.append(
+                    book_parts["middle_start"]
+                    + f" {text}"
+                    + " " * (page_width - (len(text) + 1))
+                    + book_parts["middle"]
+                    + f" {formatted_text[second_text_index]}"
+                    + " " * (page_width - (len(formatted_text[second_text_index]) + 1))
+                    + book_parts["middle_end"]
+                    + "\n"
+                )  # nopep8
+
+        except Exception as e:
+            print(e)
+
+            continue
+
+    final_bottom_single_pg = (
+        book_parts["bottom_single_pg_start"]
+        + book_parts["top_level"] * (page_width - 1)
+        + book_parts["bottom_single_pg_middle"]
+        + book_parts["top_level"] * (page_width - 1)
+        + book_parts["bottom_single_pg_end"]
+        + "\n"
+    )
+
+    final_bottom_multi_pg = (
+        book_parts["bottom_multi_pg_left"]
+        + "=" * (page_width - 1)
+        + book_parts["bottom_multi_pg_middle"]
+        + "=" * (page_width - 1)
+        + book_parts["bottom_multi_pg_end"]
+        + "\n"
+    )
+
+    final_bottom_final_pg = (
+        book_parts["bottom_final_pg_left"]
+        + "-" * (page_width - 2)
+        + book_parts["bottom_final_pg_middle"]
+        + "-" * (page_width - 2)
+        + book_parts["bottom_final_pg_end"]
+        + "\n"
+    )
+
+    return (
+        final_book_top
+        + "".join(final_book_middle_array)
+        + final_bottom_single_pg
+        + final_bottom_multi_pg
+        + final_bottom_final_pg,
+    )

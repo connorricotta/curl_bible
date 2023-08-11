@@ -17,7 +17,7 @@ uvicorn = {extras = ["standard"], version = "*"}
 httpx = "*"
 sqlalchemy = "*"
 sqlmodel = "*"
-mariadb = "*"
+mariadb = "==1.0.10"
 pydantic = "==1.10.11"
 
 [dev-packages]
