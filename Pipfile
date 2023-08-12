@@ -17,6 +17,7 @@ uvicorn = {extras = ["standard"], version = "*"}
 httpx = "*"
 sqlalchemy = "*"
 sqlmodel = "*"
+mariadb = "==1.0.10"
 
 [dev-packages]
 flake8 = "*"
