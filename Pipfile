@@ -17,7 +17,6 @@ uvicorn = {extras = ["standard"], version = "*"}
 httpx = "*"
 sqlalchemy = "*"
 sqlmodel = "*"
-mariadb = "*"
 
 [dev-packages]
 flake8 = "*"
