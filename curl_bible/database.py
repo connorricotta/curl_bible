@@ -1,6 +1,5 @@
 from os import getenv
 from socket import IPPROTO_TCP, getaddrinfo
-from time import sleep
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
