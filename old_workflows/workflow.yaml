@@ -1,6 +1,6 @@
-name: Test, Publish Image, and Deploy
+name: Publish to Dockerhub
 
-on: [push]
+# on: [push]
 
 jobs:
   test-code:
@@ -8,8 +8,7 @@ jobs:
     container: quay.io/connorricotta/ubuntu_node:latest
     strategy:
       matrix:
-        # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
-        python-version: ["3.9"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - name: Checkout code
@@ -30,7 +29,7 @@ jobs:
         with:
           version: ${{ matrix.python-version }}
           lock_file: Pipfile.lock
-          install_command: pipenv install -r requirements_cicd.txt
+          install_command: pipenv install -r requirements_dev.txt
           destination_folder: .venv
           cache_http_api: ${{ secrets.CACHE_URL }}
           basic_auth_username: ${{ secrets.CACHE_AUTH_USERNAME }}
