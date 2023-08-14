@@ -60,7 +60,7 @@ def create_request_verse(**kwargs) -> str:
     }:
         return f"{kwargs.get('book')} {kwargs.get('chapter_start')}:{kwargs.get('verse_start')} - {kwargs.get('chapter_end')}:{kwargs.get('verse_end')}"
     elif set(kwargs.keys()) == {"book", "chapter", "verse_start", "verse_end"}:
-        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse_start')} - {kwargs.get('verse_end')}"
+        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse_start')}-{kwargs.get('verse_end')}"
     elif set(kwargs.keys()) == {"book", "chapter"}:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}"
     elif set(kwargs.keys()) == {"book", "chapter", "verse"}:
@@ -363,5 +363,5 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
         + "".join(final_book_middle_array)
         + final_bottom_single_pg
         + final_bottom_multi_pg
-        + final_bottom_final_pg,
+        + final_bottom_final_pg
     )

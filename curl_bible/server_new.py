@@ -5,14 +5,14 @@ from fastapi import Depends, FastAPI, HTTPException, Query, requests, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
-from curl_bible import schema
+from curl_bible import __version__, schema
 
 # from curl_bible.config import Options, create_book
 from curl_bible.config_new import Options, Settings, create_book, create_request_verse
 from curl_bible.database import engine, get_database_session
 
 settings = Settings()
-app = FastAPI()
+app = FastAPI(version=__version__)
 
 schema.Base.metadata.create_all(bind=engine)
 
@@ -69,7 +69,7 @@ async def as_arguments_book_chapter_verse(
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result[0])
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{query}")
@@ -207,7 +207,7 @@ async def mutli_verse_same_chapter(
     )
     book_text = multi_query(db, **arguments)
     result = create_book(
-        bible_verse=book_text,
+        bible_verse=book_text.get("text"),
         user_options=options,
         request_verse=f"{book} {chapter}:{verse_start}-{verse_end}",
     )
