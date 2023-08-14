@@ -10,7 +10,8 @@ pyvenv.cfg
 README_test.md
 README_old.md
 docker/.env_old
-*.env*
+*.env
+.env_new
 
 
 # The following was taken from:
