@@ -11,16 +11,16 @@ username = getenv("MYSQL_USER")
 password = getenv("MYSQL_PASSWORD")
 db_host = getenv("MYSQL_HOST")
 db_name = getenv("MYSQL_DATABASE")
-db_name = "bible_new"
 db_port = getenv("MYSQL_DB_PORT")
 
 
 # Turn DNS into IP address
 try:
+    db_host = "bible_db"
     s = getaddrinfo(db_host, 3306, proto=IPPROTO_TCP)
     db_host = s[-1][-1][0]
 except Exception:
-    pass
+    db_host = "192.168.0.10"
 
 SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{username}:{password}@{db_host}/{db_name}?charset=utf8mb4"
 
