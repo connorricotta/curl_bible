@@ -16,7 +16,6 @@ db_port = getenv("MYSQL_DB_PORT")
 
 # Turn DNS into IP address
 try:
-    db_host = "bible_db"
     s = getaddrinfo(db_host, 3306, proto=IPPROTO_TCP)
     db_host = s[-1][-1][0]
 except Exception:
@@ -29,7 +28,6 @@ try:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 except Exception:
-    pass
     db_host = "localhost"
     SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{username}:{password}@{db_host}/{db_name}?charset=utf8mb4"
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
