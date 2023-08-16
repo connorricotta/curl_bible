@@ -3,7 +3,7 @@ version: '3'
 services:
   mariadb:
     image: docker.io/library/mariadb:10.5
-    container_name: bible_db
+    container_name: bible_db_podman
     hostname: "bible_db"
     volumes:
       - ./sql:/docker-entrypoint-initdb.d
@@ -18,7 +18,7 @@ services:
       - 33060:3306
   
   curl_bible:
-    image: curl_bible
+    image: curl_bible_podman
     build:
       # Allows .env to be used by both Docker-Compose and the Python image
       context: ./
