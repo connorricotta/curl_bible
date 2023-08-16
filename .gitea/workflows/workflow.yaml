@@ -91,6 +91,8 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}
             git pull
             git fetch --prune
+            echo "${{ secrets.ENV_FILE }}" > .env
+            chmod a+r .env
             docker pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
             docker-compose down && docker-compose up -d
           '

@@ -8,7 +8,6 @@ RUN pip install pipenv
 RUN pipenv install --system --deploy
 
 COPY curl_bible/ ./curl_bible
-COPY .env .
 
 # Run as non-root
 ARG UID=10000
