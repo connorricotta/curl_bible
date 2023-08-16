@@ -93,8 +93,8 @@ jobs:
             git fetch --prune
             echo "${{ secrets.ENV_FILE }}" > .env
             chmod a+r .env
-            docker pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
-            docker-compose down && docker-compose up -d
+            podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+            podman-compose down && podman-compose up -d
           '
 
       - run: echo "This job's status is ${{ job.status }}."
