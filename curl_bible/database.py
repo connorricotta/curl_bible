@@ -1,6 +1,6 @@
 from os import getenv
 from socket import IPPROTO_TCP, getaddrinfo
-
+from time import sleep
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,7 +13,7 @@ db_host = getenv("MYSQL_HOST")
 db_name = getenv("MYSQL_DATABASE")
 db_port = getenv("MYSQL_DB_PORT")
 
-
+print(db_host,db_port,db_name, username,password)
 # Turn DNS into IP address
 try:
     s = getaddrinfo(db_host, 3306, proto=IPPROTO_TCP)
@@ -26,6 +26,7 @@ except Exception:
 SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{username}:{password}@{db_host}/{db_name}?charset=utf8mb4"
 
 try:
+    sleep(30)
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 except Exception:
