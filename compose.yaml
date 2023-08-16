@@ -18,7 +18,7 @@ services:
       - 33060:3306
   
   curl_bible:
-    image: quay.io/connorricotta/curl_bible
+    image: quay.io/connorricotta/curl_bible:latest
     # build:
     #   # Allows .env to be used by both Docker-Compose and the Python image
     #   context: ./
