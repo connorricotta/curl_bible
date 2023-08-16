@@ -5,7 +5,6 @@ lib
 *.log
 config
 __pycache__/
-.vscode/
 pyvenv.cfg
 README_test.md
 README_old.md
