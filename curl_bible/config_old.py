@@ -1,79 +1,49 @@
-from functools import lru_cache
+from enum import Enum
 from logging import INFO, basicConfig
 from math import ceil
 from textwrap import TextWrapper
 
-from pydantic import BaseModel, BaseSettings, Field, validator
+from pydantic import BaseModel, Field, validator
 
 from curl_bible.book_config import Book
 
-
-class Settings(BaseSettings):
-    # Matches '3','999','1-999','999-1'
-    VERSE_REGEX: str = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
-    # Matches 'John:3:5','Psalms:119:175'
-    SINGLE_SEMICOLON_REGEX: str = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-    # Matches 'John:3:5:John:4:3', 'Numbers:7:1:Psalms:119:175'
-    MULTI_SEMICOLON_REGEX: str = (
-        "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-    )
-    # Matches 'John:3:1-2','Psalms:119:170-176'
-    SINGLE_SEMICOLON_DASH_REGEX: str = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
-    # Matches 'John 3'
-    ENTIRE_CHAPTER_REGEX: str = "^([A-z]*:[0-9]{1,3})$"
-    # Matches 'AAA', 'ZZZ'
-    VERSION_REGEX: str = "^([A-Z]{3})$"
-    REGULAR_TO_SUPERSCRIPT: dict = {
-        "0": "⁰",
-        "1": "¹",
-        "2": "²",
-        "3": "³",
-        "4": "⁴",
-        "5": "⁵",
-        "6": "⁶",
-        "7": "⁷",
-        "8": "⁸",
-        "9": "⁹",
-    }
-    COLOR_TEXT_DEFAULT: bool = True
-    TEXT_ONLY_DEFAULT: bool = False
-    VERSION_DEFAULT: str = "ASV"
-    LENGTH_DEFAULT: int = 60
-    WIDTH_DEFAULT: int = 80
-    JSON_DEFAULT: bool = False
-    OPTIONS_DEFAULT: str = ""
-    VERSE_NUMBERS: bool = True
+COLOR_TEXT_DEFAULT = True
+TEXT_ONLY_DEFAULT = False
+VERSION_DEFAULT = "ASV"
+LENGTH_DEFAULT = 60
+WIDTH_DEFAULT = 80
+JSON_DEFAULT = False
+OPTIONS_DEFAULT = ""
+VERSE_NUMBERS = True
 
 
-@lru_cache()
-def create_settings():
-    return Settings()
+# Matches '3','999','1-999','999-1'
+VERSE_REGEX = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
+# Matches 'John:3:5','Psalms:119:175'
+SINGLE_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
+# Matches 'John:3:5:John:4:3', 'Numbers:7:1:Psalms:119:175'
+MULTI_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
+# Matches 'John:3:1-2','Psalms:119:170-176'
+SINGLE_SEMICOLON_DASH_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
+# Matches 'John 3'
+ENTIRE_CHAPTER_REGEX = "^([A-z]*:[0-9]{1,3})$"
+# Matches 'AAA', 'ZZZ'
+VERSION_REGEX = "^([A-Z]{3})$"
 
 
-def create_request_verse(**kwargs) -> str:
-    if set(kwargs.keys()) == {
-        "book",
-        "chapter_start",
-        "chapter_end",
-        "verse_start",
-        "verse_end",
-    }:
-        return f"{kwargs.get('book')} {kwargs.get('chapter_start')}:{kwargs.get('verse_start')} - {kwargs.get('chapter_end')}:{kwargs.get('verse_end')}"
-    elif set(kwargs.keys()) == {"book", "chapter", "verse_start", "verse_end"}:
-        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse_start')}-{kwargs.get('verse_end')}"
-    elif set(kwargs.keys()) == {"book", "chapter"}:
-        return f"{kwargs.get('book')} {kwargs.get('chapter')}"
-    elif set(kwargs.keys()) == {"book", "chapter", "verse"}:
-        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse')}"
-
-
-def is_bool(self, bool_test: str) -> bool:
-    if bool_test is bool:
-        return bool_test
-    return bool_test.lower() in ("yes", "true", "t", "1")
-
-
-settings = create_settings()
+# Because these superscripts are in different Unicode blocks, just manually replace values.
+REGULAR_TO_SUPERSCRIPT = {
+    "0": "⁰",
+    "1": "¹",
+    "2": "²",
+    "3": "³",
+    "4": "⁴",
+    "5": "⁵",
+    "6": "⁶",
+    "7": "⁷",
+    "8": "⁸",
+    "9": "⁹",
+}
 
 
 class OptionsNames:
@@ -88,13 +58,13 @@ class OptionsNames:
     }
 
     values = {
-        "color_text": settings.COLOR_TEXT_DEFAULT,
-        "length": settings.LENGTH_DEFAULT,
-        "text_only": settings.TEXT_ONLY_DEFAULT,
-        "width": settings.WIDTH_DEFAULT,
-        "version": settings.VERSION_DEFAULT,
-        "verse_numbers": settings.VERSE_NUMBERS,
-        "return_json": settings.JSON_DEFAULT,
+        "color_text": COLOR_TEXT_DEFAULT,
+        "length": LENGTH_DEFAULT,
+        "text_only": TEXT_ONLY_DEFAULT,
+        "width": WIDTH_DEFAULT,
+        "version": VERSION_DEFAULT,
+        "verse_numbers": VERSE_NUMBERS,
+        "return_json": JSON_DEFAULT,
     }
 
     def to_long(self, option):
@@ -109,12 +79,12 @@ class OptionsNames:
 
 class Options(BaseModel):
     color_text: bool | None = Field(default=True)
-    text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT)
-    version: str | None = Field(default=settings.VERSION_DEFAULT)
-    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0)
-    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0)
-    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS)
-    return_json: bool | None = Field(default=settings.JSON_DEFAULT)
+    text_only: bool | None = Field(default=TEXT_ONLY_DEFAULT)
+    version: str | None = Field(default=VERSION_DEFAULT)
+    length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
+    width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
+    verse_numbers: bool | None = Field(default=VERSE_NUMBERS)
+    return_json: bool | None = Field(default=JSON_DEFAULT)
     options: str | None
 
     @validator("options")
@@ -125,7 +95,15 @@ class Options(BaseModel):
         """
 
         default_options = OptionsNames()
-        default_values = default_options.values
+        default_values = {
+            "color_text": COLOR_TEXT_DEFAULT,
+            "length": LENGTH_DEFAULT,
+            "text_only": TEXT_ONLY_DEFAULT,
+            "width": WIDTH_DEFAULT,
+            "version": VERSION_DEFAULT,
+            "verse_numbers": VERSE_NUMBERS,
+            "return_json": JSON_DEFAULT,
+        }
         if user_options == "" or user_options is None:
             return user_options
 
@@ -200,6 +178,36 @@ class Options(BaseModel):
                 elif key == "j":
                     self.return_json = is_bool(value)
         return " "
+
+
+class Status(Enum):
+    Success = 0
+    Failure = 401
+    MajorFailure = 501
+
+
+class ReturnObject:
+    def __init__(self, status: int, content: str) -> None:
+        self.status = status
+        self.content = content
+
+    def get_content(self):
+        return self.content
+
+    def get_status(self):
+        return self.status
+
+    def get_error(self):
+        return self.content
+
+    def is_error(self):
+        return self.status.value != Status.Success.value
+
+
+def is_bool(bool_test):
+    if bool_test is bool:
+        return bool_test
+    return bool_test.lower() in ("yes", "true", "t", "1")
 
 
 def create_book(bible_verse: str, user_options: Options, request_verse: dict):
@@ -358,10 +366,11 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
         + "\n"
     )
 
-    return (
+    return ReturnObject(
+        Status.Success,
         final_book_top
         + "".join(final_book_middle_array)
         + final_bottom_single_pg
         + final_bottom_multi_pg
-        + final_bottom_final_pg
+        + final_bottom_final_pg,
     )
