@@ -6,7 +6,7 @@ services:
     container_name: bible_db
     hostname: "bible_db"
     volumes:
-      - ./sql/bible-mysql-new.sql:/docker-entrypoint-initdb.d
+      - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
@@ -19,9 +19,6 @@ services:
   
   curl_bible:
     image: quay.io/connorricotta/curl_bible:latest
-    # build:
-    #   # Allows .env to be used by both Docker-Compose and the Python image
-    #   context: ./
     hostname: "curl_bible"
     container_name: curl_bible
     ports:

@@ -22,7 +22,7 @@ jobs:
 
       - name: "Create env file"
         run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
+          echo "${{ secrets.ENV_FILE_DEV }}" > .env
           chmod a+r .env
 
       - name: Pipenv Install (with cache)
@@ -85,15 +85,13 @@ jobs:
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
 
-      # TODO: add testing ENV_TEST and ENV_PROD .env files (DB_HOST=192.168.0.10 vs bible_db)
-      #       Change compose image to whats on quay.io
       - name: SSH to test
         run: |
           ssh -o "StrictHostKeyChecking no" -t -i ssh_key ${{ secrets.DEPLOY_HOST }} '
             cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}
             git pull
             git fetch --prune
-            echo "${{ secrets.ENV_FILE }}" > curl_bible/.env
+            echo "${{ secrets.ENV_FILE_PROD }}" > curl_bible/.env
             chmod a+r curl_bible/.env
             podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
             podman-compose down && podman-compose up -d

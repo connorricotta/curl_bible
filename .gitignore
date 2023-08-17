@@ -10,7 +10,7 @@ README_test.md
 README_old.md
 docker/.env_old
 *.env
-.env_new
+.env_*
 
 
 # The following was taken from:

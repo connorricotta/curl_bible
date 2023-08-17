@@ -1,44 +1,41 @@
-from os import getenv
 from socket import IPPROTO_TCP, getaddrinfo
 from time import sleep
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 
-load_dotenv("curl_bible/.env")
-username = getenv("MYSQL_USER")
-password = getenv("MYSQL_PASSWORD")
-db_host = getenv("MYSQL_HOST")
-db_name = getenv("MYSQL_DATABASE")
-db_port = getenv("MYSQL_DB_PORT")
+from curl_bible.config import create_database_settings
 
+db_settings = create_database_settings()
 
 # Turn DNS into IP address
-try:
-    s = getaddrinfo(db_host, 3306, proto=IPPROTO_TCP)
-    db_host = s[-1][-1][0]
-    print(f"Got db_host of {db_host} ")
-except Exception:
-    db_host = "192.168.0.10"
-    print(f"New db_host is {db_host} ")
+address_info = getaddrinfo(db_settings.MYSQL_HOST, 3306, proto=IPPROTO_TCP)
+db_settings.MYSQL_HOST = address_info[-1][-1][0]
+print(f"Got db_host of {db_settings.MYSQL_HOST} ")
 
-SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{username}:{password}@{db_host}/{db_name}?charset=utf8mb4"
+SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USERNAME}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
-try:
-    if db_host != "192.168.0.10":
-        sleep(30)
+
+for _ in range(db_settings.DB_CONNECT_ATTEMPTS):
+    try:
+        engine = create_engine(SQLALCHEMY_DATABASE_URL)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        Base = declarative_base()
+        if isinstance(Base, DeclarativeMeta):
+            break
+    except Exception:
+        sleep(5)
+
+if Base is None:
+    # Connect to localhost as a last ditch effort
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        db_settings.MYSQL_HOST, "localhost"
+    )
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-except Exception:
-    db_host = "localhost"
-    print(f"Couldn't connect, new db_host is {db_host}")
-    SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{username}:{password}@{db_host}/{db_name}?charset=utf8mb4"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
+    Base = declarative_base()
 
 
 def get_database_session():

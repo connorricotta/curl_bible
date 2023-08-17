@@ -3,8 +3,10 @@ from logging import INFO, basicConfig
 from math import ceil
 from textwrap import TextWrapper
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel, BaseSettings, Field, validator
 
+from curl_bible import schema
 from curl_bible.book_config import Book
 
 
@@ -45,9 +47,27 @@ class Settings(BaseSettings):
     VERSE_NUMBERS: bool = True
 
 
+class DatabaseSettings(BaseSettings):
+    DEVELOPMENT_DB_HOST: str
+    DB_CONNECT_ATTEMPTS: int
+    MYSQL_USERNAME: str
+    MYSQL_PASSWORD: str
+    MYSQL_HOST: str
+    MYSQL_DATABASE: str
+    MYSQL_DB_PORT: int
+
+    class Config:
+        env_file = "curl_bible/.env"
+
+
 @lru_cache()
 def create_settings():
     return Settings()
+
+
+@lru_cache()
+def create_database_settings():
+    return DatabaseSettings()
 
 
 def create_request_verse(**kwargs) -> str:
@@ -200,6 +220,18 @@ class Options(BaseModel):
                 elif key == "j":
                     self.return_json = is_bool(value)
         return " "
+
+
+class UserError(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+class ProgrammerError(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail
+        )
 
 
 def create_book(bible_verse: str, user_options: Options, request_verse: dict):
@@ -365,3 +397,166 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
         + final_bottom_multi_pg
         + final_bottom_final_pg
     )
+
+
+def multi_query(db, **kwargs) -> str:
+    options = kwargs.pop("options")
+    if options is not None:
+        if options.version == "ASV":
+            version = schema.TableASV
+        elif options.version == "BBE":
+            version = schema.TableBBE
+        elif options.version == "JKV":
+            version = schema.TableKJV
+        elif options.version == "WEB":
+            version = schema.TableWEB
+        elif options.version == "YLT":
+            version = schema.TableYLT
+    else:
+        version = schema.TableASV
+
+    # Query single verse
+    if {"book", "chapter", "verse"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+                .filter(version.verse == kwargs.get("verse"))
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Entire chapter
+    elif {"book", "chapter"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Multi verse, same chapter
+    elif {"book", "chapter", "verse_start", "verse_end"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+                .filter(
+                    version.verse.between(
+                        kwargs.get("verse_start"), kwargs.get("verse_end")
+                    )
+                )
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Multi verse, different chapter
+    elif set(
+        ["book", "chapter_start", "chapter_end", "verse_start", "verse_end"]
+    ) == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(
+                    version.chapter.between(
+                        kwargs.get("chapter_start"), kwargs.get("chapter_end")
+                    )
+                )
+                .filter(
+                    version.id.between(
+                        "".join(
+                            [
+                                kwargs.get("book"),
+                                kwargs.get("chapter_start"),
+                                kwargs.get("verse_start"),
+                            ]
+                        ),
+                        "".join(
+                            [
+                                kwargs.get("book"),
+                                kwargs.get("chapter_end"),
+                                kwargs.get("verse_end"),
+                            ]
+                        ),
+                    )
+                )
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+    else:
+        raise UserError("verse not found")
+    if data is not None:
+        if options.verse_numbers:
+            # Converts verse numbers into their uppercase version
+            text = " ".join(
+                [
+                    "".join(
+                        [
+                            settings.REGULAR_TO_SUPERSCRIPT.get(num)
+                            for num in [*str(query.verse)]
+                        ]
+                    )
+                    + query.text
+                    for query in data
+                ]
+            )
+            kwargs["text"] = text
+            kwargs["options"] = options
+            return kwargs
+        # elif False:
+        # JSON Response
+        # TODO: finish this with proper queries
+        #     text = " ".join([query.text for query in data])
+        #     kwargs.update({"text": text})
+        #     return kwargs
+        else:
+            text = " ".join([query.text for query in data])
+            kwargs["text"] = text
+            kwargs["options"] = options
+            return kwargs
+
+
+def flatten_args(db, **kwargs):
+    """
+    Convert regular bible verses into IDs
+    """
+
+    for argument in [
+        "chapter",
+        "chapter_start",
+        "chapter_end",
+        "verse",
+        "verse_start",
+        "verse_end",
+    ]:
+        if argument in kwargs.keys():
+            if type(kwargs.get(argument)) == int:
+                kwargs[argument] = str(kwargs.get(argument))
+            if not str.isnumeric(kwargs.get(argument)):
+                raise UserError(f"Invalid {argument}! {argument} is not a number!")
+
+            kwargs[argument] = "0" * (3 - len(kwargs.get(argument))) + kwargs.get(
+                argument
+            )
+
+    if "book" in kwargs.keys():
+        data = (
+            db.query(schema.KeyAbbreviationsEnglish)
+            .filter(schema.KeyAbbreviationsEnglish.name == kwargs.get("book"))
+            .filter(schema.KeyAbbreviationsEnglish.primary == "1")
+        ).first()
+        if data is not None:
+            kwargs["book"] = str(data.book)
+        else:
+            raise UserError(f"Book {kwargs.get('book')} not found.")
+
+    return kwargs
