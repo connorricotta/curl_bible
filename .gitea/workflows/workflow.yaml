@@ -20,11 +20,6 @@ jobs:
       - name: Make venv
         run: mkdir .venv
 
-      - name: "Create env file"
-        run: |
-          echo "${{ secrets.ENV_FILE_DEV }}" > .env
-          chmod a+r .env
-
       - name: Pipenv Install (with cache)
         uses: https://github.com/kevincobain2000/action-cache-http@v2
         with:
@@ -35,6 +30,11 @@ jobs:
           cache_http_api: ${{ secrets.CACHE_URL }}
           basic_auth_username: ${{ secrets.CACHE_AUTH_USERNAME }}
           basic_auth_password: ${{ secrets.CACHE_AUTH_PASSWORD }}
+
+      - name: "Create env file"
+        run: |
+          echo "${{ secrets.ENV_FILE_DEV }}" > .env
+          chmod a+r .env
 
       - name: Run tests
         run: |
