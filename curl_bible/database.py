@@ -20,6 +20,7 @@ SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:
 if (
     db_settings.MYSQL_HOST != db_settings.DEVELOPMENT_DB_HOST
     or db_settings.MYSQL_HOST != "127.0.0.1"
+    or db_settings.MYSQL_HOST != "localhost"
 ):
     sleep(30)
 for i in range(db_settings.DB_CONNECT_ATTEMPTS):
