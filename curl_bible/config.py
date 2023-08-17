@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 class DatabaseSettings(BaseSettings):
     DEVELOPMENT_DB_HOST: str
     DB_CONNECT_ATTEMPTS: int
-    MYSQL_USERNAME: str
+    MYSQL_USER: str
     MYSQL_PASSWORD: str
     MYSQL_HOST: str
     MYSQL_DATABASE: str

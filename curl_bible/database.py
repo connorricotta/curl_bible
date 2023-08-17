@@ -15,7 +15,7 @@ address_info = getaddrinfo(db_settings.MYSQL_HOST, 3306, proto=IPPROTO_TCP)
 db_settings.MYSQL_HOST = address_info[-1][-1][0]
 print(f"Got db_host of {db_settings.MYSQL_HOST} ")
 
-SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USERNAME}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
+SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
 
 for _ in range(db_settings.DB_CONNECT_ATTEMPTS):
