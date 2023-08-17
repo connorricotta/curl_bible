@@ -17,7 +17,10 @@ print(f"Got db_host of {db_settings.MYSQL_HOST} ")
 
 SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
-if db_settings.MYSQL_HOST != db_settings.DEVELOPMENT_DB_HOST or db_settings.MYSQL_HOST != '127.0.0.1' :
+if (
+    db_settings.MYSQL_HOST != db_settings.DEVELOPMENT_DB_HOST
+    or db_settings.MYSQL_HOST != "127.0.0.1"
+):
     sleep(30)
 for i in range(db_settings.DB_CONNECT_ATTEMPTS):
     try:
@@ -27,7 +30,7 @@ for i in range(db_settings.DB_CONNECT_ATTEMPTS):
         if isinstance(Base, DeclarativeMeta):
             break
     except Exception:
-        print(f"Unable to connect on attempt {i}") 
+        print(f"Unable to connect on attempt {i}")
         sleep(10)
 
 if Base is None:
