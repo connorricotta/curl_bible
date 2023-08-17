@@ -75,10 +75,10 @@ jobs:
         with:
           version: latest
 
-      # docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
+      # docker buildx build --platform linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
       - name: "Build new Docker Image"
         run: |
-          docker buildx build --platform linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
+          docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
 
       - name: Make SSH key
         run: |
