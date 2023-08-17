@@ -17,8 +17,9 @@ print(f"Got db_host of {db_settings.MYSQL_HOST} ")
 
 SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
-
-for _ in range(db_settings.DB_CONNECT_ATTEMPTS):
+if db_settings.MYSQL_HOST != db_settings.DEVELOPMENT_DB_HOST or db_settings.MYSQL_HOST != '127.0.0.1' :
+    sleep(30)
+for i in range(db_settings.DB_CONNECT_ATTEMPTS):
     try:
         engine = create_engine(SQLALCHEMY_DATABASE_URL)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -26,7 +27,8 @@ for _ in range(db_settings.DB_CONNECT_ATTEMPTS):
         if isinstance(Base, DeclarativeMeta):
             break
     except Exception:
-        sleep(5)
+        print(f"Unable to connect on attempt {i}") 
+        sleep(10)
 
 if Base is None:
     # Connect to localhost as a last ditch effort

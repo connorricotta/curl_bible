@@ -10,7 +10,7 @@ services:
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
-      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_USER: "${MYSQL_USERNAME}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
     restart: always
@@ -23,7 +23,10 @@ services:
     container_name: curl_bible
     ports:
       - 10000:10000
+        #entrypoint: sleep 10000
     volumes:
       # Allow logs to be viewed without entering the container.
       - ./log:/code/curl_bible/log
+      - ./.env:/code/curl_bible/.env
+      - ./curl_bible:/code/curl_bible
     restart: always
