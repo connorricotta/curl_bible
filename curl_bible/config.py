@@ -177,15 +177,18 @@ class Options(BaseModel):
         values["return_json"] = is_bool(default_values.get("return_json"))
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
-        if (type(default_values.get("length")) == int) or (
-            str.isnumeric(default_values.get("length"))
+        if (isinstance(default_values.get("length"), int)) or (
+            str(default_values.get("length")).isnumeric()
             and int(default_values.get("length")) > 0
         ):
             values["length"] = int(default_values["length"])
-        if (default_values["width"] is int) or (
-            str.isnumeric(default_values["width"]) and int(default_values["width"]) > 0
+
+        if (isinstance(default_values["width"], int)) or (
+            str(default_values["width"]).isnumeric()
+            and int(default_values["width"]) > 0
         ):
             values["width"] = int(default_values["width"])
+
         if len(default_values["version"]) == 3:
             values["version"] = default_values["version"].upper()
 
