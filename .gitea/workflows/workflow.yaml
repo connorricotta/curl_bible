@@ -75,10 +75,22 @@ jobs:
         with:
           version: latest
 
+      - name: Buildx
+        uses: docker/build-push-action
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          push: true
+          cacheFrom: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}
+          cacheTo: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}
+          tags:
+            - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+            - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }}
+
       # docker buildx build --platform linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
-      - name: "Build new Docker Image"
-        run: |
-          docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }} --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }},mode=max --push .
+      # - name: "Build new Docker Image"
+      # run: |
+      # docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }} --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }},mode=max --push .
 
       - name: Make SSH key
         run: |
@@ -93,9 +105,9 @@ jobs:
             git fetch --prune
             echo "${{ secrets.ENV_FILE_PROD }}" > curl_bible/.env
             chmod a+r curl_bible/.env
-            cp -a curl_bible/.env .
+            cp -p curl_bible/.env .
             source curl_bible/.env
-            podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+            podman-compose build --pull
             podman-compose down && podman-compose up -d
           '
 
