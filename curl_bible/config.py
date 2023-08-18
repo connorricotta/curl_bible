@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
 
 class DatabaseSettings(BaseSettings):
-    DEVELOPMENT_DB_HOST: str
+    DEBUG: bool
     DB_CONNECT_ATTEMPTS: int
     MYSQL_USER: str
     MYSQL_PASSWORD: str

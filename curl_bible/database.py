@@ -17,11 +17,7 @@ print(f"Got db_host of {db_settings.MYSQL_HOST} ")
 
 SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
-if (
-    db_settings.MYSQL_HOST != db_settings.DEVELOPMENT_DB_HOST
-    or db_settings.MYSQL_HOST != "127.0.0.1"
-    or db_settings.MYSQL_HOST != "localhost"
-):
+if not db_settings.DEBUG:
     sleep(30)
 for i in range(db_settings.DB_CONNECT_ATTEMPTS):
     try:
