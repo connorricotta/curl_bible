@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import lru_cache
 from logging import INFO, basicConfig
 from math import ceil
@@ -88,7 +89,7 @@ def create_request_verse(**kwargs) -> str:
 
 
 def is_bool(bool_test: str) -> bool:
-    if bool_test is bool:
+    if isinstance(bool_test, bool):
         return bool_test
     return bool_test.lower() in ("yes", "true", "t", "1")
 
@@ -145,7 +146,7 @@ class Options(BaseModel):
         """
 
         default_options = OptionsNames()
-        default_values = default_options.values
+        default_values = deepcopy(default_options.values)
         if user_options == "" or user_options is None:
             return user_options
 
