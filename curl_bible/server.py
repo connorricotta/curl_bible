@@ -1,8 +1,11 @@
 from random import choice, randint
 from typing import Union
 
-from fastapi import Depends, FastAPI, Query, status
+from fastapi import Depends, FastAPI, Query, Request, status
 from fastapi.responses import PlainTextResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from curl_bible import __version__, schema
@@ -17,16 +20,22 @@ from curl_bible.config import (
 from curl_bible.database import engine, get_database_session
 from curl_bible.helper_methods import router as helper_methods_router
 
+limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
+
 app = FastAPI(version=__version__)
 app.include_router(helper_methods_router)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Initalize DB
 schema.Base.metadata.create_all(bind=engine)
 
 
 @app.get("/")
+@limiter.limit(settings.RATE_LIMIT)
 async def as_arguments_book_chapter_verse(
+    request: Request,
     book: Union[str | None] = Query(default=None),
     chapter: Union[int, None] = Query(default=None, ge=0, le=50),
     verse: Union[str, None] = Query(default=None, regex=settings.VERSE_REGEX),
@@ -68,7 +77,9 @@ async def as_arguments_book_chapter_verse(
 
 
 @app.get("/{query}")
+@limiter.limit(settings.RATE_LIMIT)
 async def query_many(
+    request: Request,
     query: str,
     db: Session = Depends(get_database_session),
     options: Options = Depends(),
@@ -108,7 +119,9 @@ async def query_many(
 
 
 @app.get("/{book}/{chapter}")
+@limiter.limit(settings.RATE_LIMIT)
 async def entire_chapter(
+    request: Request,
     book: str,
     chapter: str,
     db_session: Session = Depends(get_database_session),
@@ -137,7 +150,9 @@ async def entire_chapter(
 
 
 @app.get("/{book}/{chapter}/{verse}")
+@limiter.limit(settings.RATE_LIMIT)
 async def flatten_out(
+    request: Request,
     book: str,
     chapter: str,
     verse: str,
@@ -184,7 +199,9 @@ async def flatten_out(
 
 
 @app.get("/{book}/{chapter}/{verse_start}/{verse_end}")
+@limiter.limit(settings.RATE_LIMIT)
 async def mutli_verse_same_chapter(
+    request: Request,
     book: str,
     chapter: str,
     verse_start: str,
@@ -210,7 +227,8 @@ async def mutli_verse_same_chapter(
 
 
 @app.get("/versions")
-def show_bible_versions():
+@limiter.limit(settings.RATE_LIMIT)
+def show_bible_versions(request: Request):
     """
     Return a list of the bibles supported by this webapp.
     Taken from the 'bible_version_key' table in the DB.
@@ -245,7 +263,8 @@ def show_bible_versions():
 
 
 @app.get("/help")
-def display_help():
+@limiter.limit(settings.RATE_LIMIT)
+def display_help(request: Request):
     """
     Display a help message detailing all supported query methods and options.
 

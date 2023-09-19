@@ -45,4 +45,7 @@ def get_database_session():
         db = SessionLocal()
         yield db
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass

@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         "8": "⁸",
         "9": "⁹",
     }
+    RATE_LIMIT: str = "60/minute"
     COLOR_TEXT_DEFAULT: bool = True
     TEXT_ONLY_DEFAULT: bool = False
     VERSION_DEFAULT: str = "ASV"

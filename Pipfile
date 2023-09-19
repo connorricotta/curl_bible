@@ -20,6 +20,7 @@ sqlmodel = "*"
 mariadb = "==1.0.10"
 pydantic = "==1.10.11"
 bump2version = "*"
+slowapi = "*"
 
 [dev-packages]
 flake8 = "*"
