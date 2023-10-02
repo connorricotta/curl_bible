@@ -314,7 +314,7 @@ The following options are supported:
     • 'j' or 'return_json' - Return the JSON version of the response.
 
     These options can be combined on a single parameter for convenience:
-        curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE
+        curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE,j=True
     But may also be separated in key value pairs as parameters:
         curl "bible.ricotta.dev/John:3:15?length=40&color_text=False"
 Check out the interactive help menu here: https://bible.ricotta.dev/docs
