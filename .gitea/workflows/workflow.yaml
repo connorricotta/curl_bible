@@ -108,7 +108,7 @@ jobs:
             chmod a+r curl_bible/.env
             cp -p curl_bible/.env .
             source curl_bible/.env
-            podman-compose build --pull
+            podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
             podman-compose down && podman-compose up -d
           '
 
