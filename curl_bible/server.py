@@ -23,7 +23,10 @@ from curl_bible.helper_methods import router as helper_methods_router
 limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
 
-app = FastAPI(version=__version__)
+app = FastAPI(
+    version=__version__,
+    swagger_ui_parameters={"request.curlOptions": ["-H", "Online: yes"]},
+)
 app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -60,6 +63,7 @@ async def as_arguments_book_chapter_verse(
             kwargs["verse"] = verse
 
     request_verse = create_request_verse(**kwargs)
+    kwargs["request"] = request
     arguments = flatten_args(db=db_session, options=options, **kwargs)
 
     kwargs.update(multi_query(db_session, **arguments))
@@ -67,13 +71,15 @@ async def as_arguments_book_chapter_verse(
     if options.return_json:
         kwargs["request_verse"] = request_verse
         return kwargs
+    elif options.text_only:
+        return PlainTextResponse(content=kwargs.get("text"))
     else:
         result = create_book(
             bible_verse=kwargs.get("text"),
             user_options=options,
             request_verse=request_verse,
         )
-    return PlainTextResponse(content=result)
+        return PlainTextResponse(content=result)
 
 
 @app.get("/{query}")
@@ -100,6 +106,7 @@ async def query_many(
             kwargs["verse"] = split_query[2]
 
     request_verse = create_request_verse(**kwargs)
+    kwargs["request"] = request
     arguments = flatten_args(db=db, options=options, **kwargs)
 
     kwargs.update(multi_query(db, **arguments))
@@ -129,10 +136,7 @@ async def entire_chapter(
 ):
     kwargs = dict()
     arguments = flatten_args(
-        db=db_session,
-        book=book,
-        chapter=chapter,
-        options=options,
+        db=db_session, book=book, chapter=chapter, options=options, request=request
     )
     request_verse = create_request_verse(book=book, chapter=chapter)
     kwargs.update(multi_query(db_session, **arguments))
@@ -140,6 +144,8 @@ async def entire_chapter(
     if options.return_json:
         kwargs["request_verse"] = request_verse
         return kwargs
+    elif options.text_only:
+        return PlainTextResponse(content=kwargs.get("text"))
     else:
         result = create_book(
             bible_verse=kwargs.get("text"),
@@ -164,7 +170,10 @@ async def flatten_out(
     if "-" in verse:
         verse_start, verse_end = verse.split("-")
         request_verse = create_request_verse(
-            book=book, chapter=chapter, verse_start=verse_start, verse_end=verse_end
+            book=book,
+            chapter=chapter,
+            verse_start=verse_start,
+            verse_end=verse_end,
         )
         arguments = flatten_args(
             db,
@@ -173,6 +182,7 @@ async def flatten_out(
             verse_start=verse_start,
             verse_end=verse_end,
             options=options,
+            request=request,
         )
     else:
         request_verse = create_request_verse(book=book, chapter=chapter, verse=verse)
@@ -182,6 +192,7 @@ async def flatten_out(
             chapter=chapter,
             verse=verse,
             options=options,
+            request=request,
         )
 
     kwargs.update(multi_query(db, **arguments))
@@ -189,6 +200,8 @@ async def flatten_out(
     if options.return_json:
         kwargs["request_verse"] = request_verse
         return kwargs
+    elif options.text_only:
+        return PlainTextResponse(content=kwargs.get("text"))
     else:
         result = create_book(
             bible_verse=kwargs.get("text"),
@@ -209,6 +222,10 @@ async def mutli_verse_same_chapter(
     db: Session = Depends(get_database_session),
     options: Options = Depends(),
 ):
+    kwargs = dict()
+    request_verse = create_request_verse(
+        book=book, chapter=chapter, verse_start=verse_start, verse_end=verse_end
+    )
     arguments = flatten_args(
         db=db,
         book=book,
@@ -216,13 +233,21 @@ async def mutli_verse_same_chapter(
         verse_start=verse_start,
         verse_end=verse_end,
         options=options,
+        request=request,
     )
-    book_text = multi_query(db, **arguments)
-    result = create_book(
-        bible_verse=book_text.get("text"),
-        user_options=options,
-        request_verse=f"{book} {chapter}:{verse_start}-{verse_end}",
-    )
+    kwargs.update(multi_query(db, **arguments))
+
+    if options.return_json:
+        kwargs["request_verse"] = request_verse
+        return kwargs
+    elif options.text_only:
+        return PlainTextResponse(content=kwargs.get("text"))
+    else:
+        result = create_book(
+            bible_verse=kwargs.get("text"),
+            user_options=options,
+            request_verse=request_verse,
+        )
     return PlainTextResponse(content=result)
 
 

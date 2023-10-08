@@ -41,11 +41,8 @@ if Base is None:
 
 
 def get_database_session():
+    db = SessionLocal()
     try:
-        db = SessionLocal()
         yield db
     finally:
-        try:
-            db.close()
-        except Exception:
-            pass
+        db.close()

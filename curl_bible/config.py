@@ -406,6 +406,10 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
 
 def multi_query(db, **kwargs) -> str:
     options = kwargs.pop("options")
+    request = kwargs.pop("request")
+    referer = request.headers.get("referer")
+    if request is not None and referer is not None and "/docs" in referer:
+        options.text_only = True
     if options is not None:
         if options.version == "ASV":
             version = schema.TableASV
@@ -534,7 +538,7 @@ def flatten_args(db, **kwargs):
     """
     Convert regular bible verses into IDs
     """
-
+    # if "request" in
     for argument in [
         "chapter",
         "chapter_start",
