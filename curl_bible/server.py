@@ -2,7 +2,13 @@ from random import choice, randint
 from typing import Union
 
 from fastapi import Depends, FastAPI, Query, Request, status
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
 from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -23,16 +29,39 @@ from curl_bible.helper_methods import router as helper_methods_router
 limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
 
-app = FastAPI(
-    version=__version__,
-    swagger_ui_parameters={"request.curlOptions": ["-H", "Online: yes"]},
-)
+app = FastAPI(version=__version__, docs_url=None, redoc_url=None)
+app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
 app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Initalize DB
 schema.Base.metadata.create_all(bind=engine)
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui.css",
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+        redoc_js_url="/static/redoc.standalone.js",
+    )
+
+
+@app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
 
 
 @app.get("/")
