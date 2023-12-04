@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
-        python-version: ["3.10"]
+        python-version: ["3.9"]
 
     steps:
       - name: Checkout code
@@ -19,11 +19,6 @@ jobs:
 
       - name: Make venv
         run: mkdir .venv
-
-      - name: "Create env file"
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-          chmod a+r .env
 
       - name: Pipenv Install (with cache)
         uses: https://github.com/kevincobain2000/action-cache-http@v2
@@ -35,6 +30,11 @@ jobs:
           cache_http_api: ${{ secrets.CACHE_URL }}
           basic_auth_username: ${{ secrets.CACHE_AUTH_USERNAME }}
           basic_auth_password: ${{ secrets.CACHE_AUTH_PASSWORD }}
+
+      - name: "Create env file"
+        run: |
+          echo "${{ secrets.ENV_FILE_DEV }}" > .env
+          chmod a+r .env
 
       - name: Run tests
         run: |
@@ -75,9 +75,23 @@ jobs:
         with:
           version: latest
 
-      - name: "Build new Docker Image"
-        run: |
-          docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
+      # - name: Buildx
+      #   uses: docker/build-push-action
+      #   with:
+      #     context: .
+      #     platforms: linux/amd64,linux/arm/v7,linux/arm64
+      #     push: true
+      #     cacheFrom: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}
+      #     cacheTo: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}
+      #     tags:
+      #       - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+      #       - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }}
+
+      # docker buildx build --platform linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --push .
+      # - name: "Build new Docker Image"
+      # run: |
+      # docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64 -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }} --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }},mode=max --push .
+      # docker buildx build --platform linux/amd64,linux/arm/v7,linux/arm64  --cache-from type=registry,ref=quay.io/connorricotta/curl_bible --cache-from type=registry,ref=quay.io/connorricotta/curl_bible,mode=max -t quay.io/connorricotta/curl_bible:v0.1.18 -t quay.io/connorricotta/curl_bible:latest --push .
 
       - name: Make SSH key
         run: |
@@ -90,8 +104,12 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}
             git pull
             git fetch --prune
-            docker pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
-            docker-compose down && docker-compose up -d
+            echo "${{ secrets.ENV_FILE_PROD }}" > curl_bible/.env
+            chmod a+r curl_bible/.env
+            cp -p curl_bible/.env .
+            source curl_bible/.env
+            podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+            podman-compose down && podman-compose up -d
           '
 
       - run: echo "This job's status is ${{ job.status }}."

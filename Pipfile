@@ -18,6 +18,9 @@ httpx = "*"
 sqlalchemy = "*"
 sqlmodel = "*"
 mariadb = "==1.0.10"
+pydantic = "==1.10.11"
+bump2version = "*"
+slowapi = "*"
 
 [dev-packages]
 flake8 = "*"
@@ -26,6 +29,7 @@ bandit = "*"
 pytest = "*"
 isort = "*"
 pre-commit = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.10"

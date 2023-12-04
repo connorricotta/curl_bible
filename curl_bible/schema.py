@@ -15,23 +15,14 @@ class Hero(Base):
 
 
 class KeyAbbreviationsEnglish(Base):
-    __tablename__ = "key_abbrevations_english"
+    __tablename__ = "key_abbreviations_english"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    a = Column(String(255))
-    b = Column(Integer())
-    p = Column(Integer())
+    name = Column(String(255))
+    book = Column(Integer())
+    primary = Column(Integer())
 
 
-# class TableASV(Base):
-#     __tablename__ = "t_asv"
-#     id = Column(Integer(), primary_key=True, autoincrement=True)
-#     b = Column(Integer())
-#     c = Column(Integer())
-#     v = Column(Integer())
-#     t = Column(String(255))
-
-
-class TableASVNew(Base):
+class TableASV(Base):
     __tablename__ = "t_asv"
     id = Column(Integer(), primary_key=True, autoincrement=True)
     book = Column(Integer())
@@ -43,34 +34,34 @@ class TableASVNew(Base):
 class TableBBE(Base):
     __tablename__ = "t_bbe"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    b = Column(Integer())
-    c = Column(Integer())
-    v = Column(Integer())
-    t = Column(String(255))
+    book = Column(Integer())
+    chapter = Column(Integer())
+    verse = Column(Integer())
+    text = Column(String(255))
 
 
 class TableKJV(Base):
     __tablename__ = "t_kjv"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    b = Column(Integer())
-    c = Column(Integer())
-    v = Column(Integer())
-    t = Column(String(255))
+    book = Column(Integer())
+    chapter = Column(Integer())
+    verse = Column(Integer())
+    text = Column(String(255))
 
 
 class TableWEB(Base):
     __tablename__ = "t_web"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    b = Column(Integer())
-    c = Column(Integer())
-    v = Column(Integer())
-    t = Column(String(255))
+    book = Column(Integer())
+    chapter = Column(Integer())
+    verse = Column(Integer())
+    text = Column(String(255))
 
 
 class TableYLT(Base):
     __tablename__ = "t_ylt"
     id = Column(Integer(), primary_key=True, autoincrement=True)
-    b = Column(Integer())
-    c = Column(Integer())
-    v = Column(Integer())
-    t = Column(String(255))
+    book = Column(Integer())
+    chapter = Column(Integer())
+    verse = Column(Integer())
+    text = Column(String(255))

@@ -1,54 +1,104 @@
-from enum import Enum
+from copy import deepcopy
+from functools import lru_cache
 from logging import INFO, basicConfig
 from math import ceil
 from textwrap import TextWrapper
 
-from pydantic import BaseModel, Field, validator
+from fastapi import HTTPException, status
+from pydantic import BaseModel, BaseSettings, Field, validator
 
+from curl_bible import schema
 from curl_bible.book_config import Book
 
-COLOR_TEXT_DEFAULT = True
-TEXT_ONLY_DEFAULT = False
-VERSION_DEFAULT = "ASV"
-LENGTH_DEFAULT = 60
-WIDTH_DEFAULT = 80
-OPTIONS_DEFAULT = ""
-VERSE_NUMBERS = True
 
-# Matches '3','999','1-999','999-1'
-VERSE_REGEX = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
-# Matches 'John:3:5','Psalms:119:175'
-SINGLE_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-# Matches 'John:3:5:John:4:3', 'Numbers:7:1:Psalms:119:175'
-MULTI_SEMICOLON_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
-# Matches 'John:3:1-2','Psalms:119:170-176'
-SINGLE_SEMICOLON_DASH_REGEX = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
-# Matches 'John 3'
-ENTIRE_CHAPTER_REGEX = "^([A-z]*:[0-9]{1,3})$"
-# Matches 'AAA', 'ZZZ'
-VERSION_REGEX = "^([A-Z]{3})$"
+class Settings(BaseSettings):
+    # Matches '3','999','1-999','999-1'
+    VERSE_REGEX: str = "^(([0-9]{1,3})|([0-9]{1,3}-[0-9]{1,3}))$"
+    # Matches 'John:3:5','Psalms:119:175'
+    SINGLE_SEMICOLON_REGEX: str = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
+    # Matches 'John:3:5:John:4:3', 'Numbers:7:1:Psalms:119:175'
+    MULTI_SEMICOLON_REGEX: str = (
+        "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}:[A-z]*:[0-9]{1,3}:[0-9]{1,3})$"
+    )
+    # Matches 'John:3:1-2','Psalms:119:170-176'
+    SINGLE_SEMICOLON_DASH_REGEX: str = "^([A-z]*:[0-9]{1,3}:[0-9]{1,3}-[0-9]{1,3})$"
+    # Matches 'John 3'
+    ENTIRE_CHAPTER_REGEX: str = "^([A-z]*:[0-9]{1,3})$"
+    # Matches 'AAA', 'ZZZ'
+    VERSION_REGEX: str = "^([A-Z]{3})$"
+    REGULAR_TO_SUPERSCRIPT: dict = {
+        "0": "⁰",
+        "1": "¹",
+        "2": "²",
+        "3": "³",
+        "4": "⁴",
+        "5": "⁵",
+        "6": "⁶",
+        "7": "⁷",
+        "8": "⁸",
+        "9": "⁹",
+    }
+    RATE_LIMIT: str = "60/minute"
+    COLOR_TEXT_DEFAULT: bool = True
+    TEXT_ONLY_DEFAULT: bool = False
+    VERSION_DEFAULT: str = "ASV"
+    LENGTH_DEFAULT: int = 60
+    WIDTH_DEFAULT: int = 80
+    JSON_DEFAULT: bool = False
+    OPTIONS_DEFAULT: str = ""
+    VERSE_NUMBERS: bool = True
 
 
-# Because these superscripts are in different Unicode blocks, just manually replace values.
-REGULAR_TO_SUPERSCRIPT = {
-    "0": "⁰",
-    "1": "¹",
-    "2": "²",
-    "3": "³",
-    "4": "⁴",
-    "5": "⁵",
-    "6": "⁶",
-    "7": "⁷",
-    "8": "⁸",
-    "9": "⁹",
-}
+class DatabaseSettings(BaseSettings):
+    DEBUG: bool
+    DB_CONNECT_ATTEMPTS: int
+    MYSQL_USER: str
+    MYSQL_PASSWORD: str
+    MYSQL_HOST: str
+    MYSQL_DATABASE: str
+    MYSQL_DB_PORT: int
+
+    class Config:
+        env_file = "curl_bible/.env"
+
+
+@lru_cache()
+def create_settings():
+    return Settings()
+
+
+@lru_cache()
+def create_database_settings():
+    return DatabaseSettings()
+
+
+def create_request_verse(**kwargs) -> str:
+    if set(kwargs.keys()) == {
+        "book",
+        "chapter_start",
+        "chapter_end",
+        "verse_start",
+        "verse_end",
+    }:
+        return f"{kwargs.get('book')} {kwargs.get('chapter_start')}:{kwargs.get('verse_start')} - {kwargs.get('chapter_end')}:{kwargs.get('verse_end')}"
+    elif set(kwargs.keys()) == {"book", "chapter", "verse_start", "verse_end"}:
+        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse_start')}-{kwargs.get('verse_end')}"
+    elif set(kwargs.keys()) == {"book", "chapter"}:
+        return f"{kwargs.get('book')} {kwargs.get('chapter')}"
+    elif set(kwargs.keys()) == {"book", "chapter", "verse"}:
+        return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse')}"
+
+
+def is_bool(bool_test: str) -> bool:
+    if isinstance(bool_test, bool):
+        return bool_test
+    return bool_test.lower() in ("yes", "true", "t", "1")
+
+
+settings = create_settings()
 
 
 class OptionsNames:
-    """
-    Contains
-    """
-
     short_to_long = {
         "c": "color_text",
         "l": "length",
@@ -56,15 +106,17 @@ class OptionsNames:
         "w": "width",
         "v": "version",
         "n": "verse_numbers",
+        "j": "return_json",
     }
 
     values = {
-        "color_text": COLOR_TEXT_DEFAULT,
-        "length": LENGTH_DEFAULT,
-        "text_only": TEXT_ONLY_DEFAULT,
-        "width": WIDTH_DEFAULT,
-        "version": VERSION_DEFAULT,
-        "verse_numbers": VERSE_NUMBERS,
+        "color_text": settings.COLOR_TEXT_DEFAULT,
+        "length": settings.LENGTH_DEFAULT,
+        "text_only": settings.TEXT_ONLY_DEFAULT,
+        "width": settings.WIDTH_DEFAULT,
+        "version": settings.VERSION_DEFAULT,
+        "verse_numbers": settings.VERSE_NUMBERS,
+        "return_json": settings.JSON_DEFAULT,
     }
 
     def to_long(self, option):
@@ -79,11 +131,12 @@ class OptionsNames:
 
 class Options(BaseModel):
     color_text: bool | None = Field(default=True)
-    text_only: bool | None = Field(default=TEXT_ONLY_DEFAULT)
-    version: str | None = Field(default=VERSION_DEFAULT)
-    length: int | None = Field(default=LENGTH_DEFAULT, gt=0)
-    width: int | None = Field(default=WIDTH_DEFAULT, gt=0)
-    verse_numbers: bool | None = Field(default=VERSE_NUMBERS)
+    text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT)
+    version: str | None = Field(default=settings.VERSION_DEFAULT)
+    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0)
+    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0)
+    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS)
+    return_json: bool | None = Field(default=settings.JSON_DEFAULT)
     options: str | None
 
     @validator("options")
@@ -94,14 +147,7 @@ class Options(BaseModel):
         """
 
         default_options = OptionsNames()
-        default_values = {
-            "color_text": COLOR_TEXT_DEFAULT,
-            "length": LENGTH_DEFAULT,
-            "text_only": TEXT_ONLY_DEFAULT,
-            "width": WIDTH_DEFAULT,
-            "version": VERSION_DEFAULT,
-            "verse_numbers": VERSE_NUMBERS,
-        }
+        default_values = deepcopy(default_options.values)
         if user_options == "" or user_options is None:
             return user_options
 
@@ -129,17 +175,21 @@ class Options(BaseModel):
         values["color_text"] = is_bool(default_values.get("color_text"))
         values["text_only"] = is_bool(default_values.get("text_only"))
         values["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
+        values["return_json"] = is_bool(default_values.get("return_json"))
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
-        if (type(default_values.get("length")) == int) or (
-            str.isnumeric(default_values.get("length"))
+        if (isinstance(default_values.get("length"), int)) or (
+            str(default_values.get("length")).isnumeric()
             and int(default_values.get("length")) > 0
         ):
             values["length"] = int(default_values["length"])
-        if (default_values["width"] is int) or (
-            str.isnumeric(default_values["width"]) and int(default_values["width"]) > 0
+
+        if (isinstance(default_values["width"], int)) or (
+            str(default_values["width"]).isnumeric()
+            and int(default_values["width"]) > 0
         ):
             values["width"] = int(default_values["width"])
+
         if len(default_values["version"]) == 3:
             values["version"] = default_values["version"].upper()
 
@@ -151,7 +201,7 @@ class Options(BaseModel):
         user Options object
         """
         params = dict(user_options.query_params)
-        options_set = set(("l", "w", "v", "t", "c", "n"))
+        options_set = set(("l", "w", "v", "t", "c", "n", "j"))
         # Only parse them if the user passes in options with one of the values in 'options_set'
         short_options = options_set.intersection(params)
         if short_options is not None:
@@ -172,37 +222,21 @@ class Options(BaseModel):
                         self.version = value.upper()
                 elif key == "n":
                     self.verse_numbers = is_bool(value)
-        return ""
+                elif key == "j":
+                    self.return_json = is_bool(value)
+        return " "
 
 
-class Status(Enum):
-    Success = 0
-    Failure = 401
-    MajorFailure = 501
+class UserError(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-class ReturnObject:
-    def __init__(self, status: int, content: str) -> None:
-        self.status = status
-        self.content = content
-
-    def get_content(self):
-        return self.content
-
-    def get_status(self):
-        return self.status
-
-    def get_error(self):
-        return self.content
-
-    def is_error(self):
-        return self.status.value != Status.Success.value
-
-
-def is_bool(bool_test):
-    if bool_test is bool:
-        return bool_test
-    return bool_test.lower() in ("yes", "true", "t", "1")
+class ProgrammerError(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail
+        )
 
 
 def create_book(bible_verse: str, user_options: Options, request_verse: dict):
@@ -250,11 +284,6 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
     final_book_middle_array = []
     page_width = width // 2
     # Add three lines to the start of the verses
-    # if len(request_verse) == 3:
-    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}"
-    # elif len(request_verse) == 6:
-    #     formatted_verse = f"{request_verse[0]} {request_verse[1]}:{request_verse[2]}-{request_verse[3]} {request_verse[4]}:{request_verse[5]} "
-    # else:
     formatted_verse = "".join(request_verse)
     spaced_verse = (page_width - len(formatted_verse)) // 2
     formatted_text.insert(0, "")
@@ -292,7 +321,14 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
                         formatted_text[second_text_index][:-3] + "..."
                     )
                 else:
-                    formatted_text[second_text_index] += "..."
+                    if len(formatted_text[second_text_index] + "...") > page_width - 2:
+                        # Strip out extra ... if they exist
+                        formatted_text[second_text_index] += "..."
+                        formatted_text[second_text_index] = formatted_text[
+                            second_text_index
+                        ][: page_width - 2]
+                    else:
+                        formatted_text[second_text_index] += "..."
             # If too big for second text, only display the first
             if i < len(formatted_text) and second_text_index >= len(formatted_text):
                 final_book_middle_array.append(
@@ -359,11 +395,177 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
         + "\n"
     )
 
-    return ReturnObject(
-        Status.Success,
+    return (
         final_book_top
         + "".join(final_book_middle_array)
         + final_bottom_single_pg
         + final_bottom_multi_pg
-        + final_bottom_final_pg,
+        + final_bottom_final_pg
     )
+
+
+def multi_query(db, **kwargs) -> str:
+    options = kwargs.pop("options")
+    request = kwargs.pop("request")
+    referer = request.headers.get("referer")
+    if request is not None and referer is not None and "/docs" in referer:
+        options.text_only = True
+    if options is not None:
+        if options.version == "ASV":
+            version = schema.TableASV
+        elif options.version == "BBE":
+            version = schema.TableBBE
+        elif options.version == "JKV":
+            version = schema.TableKJV
+        elif options.version == "WEB":
+            version = schema.TableWEB
+        elif options.version == "YLT":
+            version = schema.TableYLT
+    else:
+        version = schema.TableASV
+
+    # Query single verse
+    if {"book", "chapter", "verse"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+                .filter(version.verse == kwargs.get("verse"))
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Entire chapter
+    elif {"book", "chapter"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Multi verse, same chapter
+    elif {"book", "chapter", "verse_start", "verse_end"} == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(version.chapter == kwargs.get("chapter"))
+                .filter(
+                    version.verse.between(
+                        kwargs.get("verse_start"), kwargs.get("verse_end")
+                    )
+                )
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+
+    # Multi verse, different chapter
+    elif set(
+        ["book", "chapter_start", "chapter_end", "verse_start", "verse_end"]
+    ) == set(kwargs.keys()):
+        try:
+            data = (
+                db.query(version)
+                .filter(version.book == kwargs.get("book"))
+                .filter(
+                    version.chapter.between(
+                        kwargs.get("chapter_start"), kwargs.get("chapter_end")
+                    )
+                )
+                .filter(
+                    version.id.between(
+                        "".join(
+                            [
+                                kwargs.get("book"),
+                                kwargs.get("chapter_start"),
+                                kwargs.get("verse_start"),
+                            ]
+                        ),
+                        "".join(
+                            [
+                                kwargs.get("book"),
+                                kwargs.get("chapter_end"),
+                                kwargs.get("verse_end"),
+                            ]
+                        ),
+                    )
+                )
+            ).all()
+
+        except Exception as e:
+            raise ProgrammerError(repr(e)) from e
+    else:
+        raise UserError("verse not found")
+    if data is not None:
+        if options.verse_numbers:
+            # Converts verse numbers into their uppercase version
+            text = " ".join(
+                [
+                    "".join(
+                        [
+                            settings.REGULAR_TO_SUPERSCRIPT.get(num)
+                            for num in [*str(query.verse)]
+                        ]
+                    )
+                    + query.text
+                    for query in data
+                ]
+            )
+            kwargs["text"] = text
+            kwargs["options"] = options
+            return kwargs
+        # elif False:
+        # JSON Response
+        # TODO: finish this with proper queries
+        #     text = " ".join([query.text for query in data])
+        #     kwargs.update({"text": text})
+        #     return kwargs
+        else:
+            text = " ".join([query.text for query in data])
+            kwargs["text"] = text
+            kwargs["options"] = options
+            return kwargs
+
+
+def flatten_args(db, **kwargs):
+    """
+    Convert regular bible verses into IDs
+    """
+    # if "request" in
+    for argument in [
+        "chapter",
+        "chapter_start",
+        "chapter_end",
+        "verse",
+        "verse_start",
+        "verse_end",
+    ]:
+        if argument in kwargs.keys():
+            if type(kwargs.get(argument)) == int:
+                kwargs[argument] = str(kwargs.get(argument))
+            if not str.isnumeric(kwargs.get(argument)):
+                raise UserError(f"Invalid {argument}! {argument} is not a number!")
+
+            kwargs[argument] = "0" * (3 - len(kwargs.get(argument))) + kwargs.get(
+                argument
+            )
+
+    if "book" in kwargs.keys():
+        data = (
+            db.query(schema.KeyAbbreviationsEnglish)
+            .filter(schema.KeyAbbreviationsEnglish.name == kwargs.get("book"))
+            .filter(schema.KeyAbbreviationsEnglish.primary == "1")
+        ).first()
+        if data is not None:
+            kwargs["book"] = str(data.book)
+        else:
+            raise UserError(f"Book {kwargs.get('book')} not found.")
+
+    return kwargs

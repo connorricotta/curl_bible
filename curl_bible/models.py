@@ -18,9 +18,9 @@ class UserBase(BaseModel):
 
 class KeyAbbreviationsEnglish(BaseModel):
     id = int
-    a = str
-    b = int
-    p = int
+    name = str
+    book = int
+    primary = int
 
     class Config:
         orm_mode = True
@@ -39,10 +39,10 @@ class TableASV(BaseModel):
 
 class TableBBE(BaseModel):
     id = int
-    b = int
-    c = int
-    v = int
-    t = str
+    book = int
+    chapter = int
+    verse = int
+    text = str
 
     class Config:
         orm_mode = True
@@ -60,10 +60,10 @@ class DBReturn(BaseModel):
 
 class TableKJV(BaseModel):
     id = int
-    b = int
-    c = int
-    v = int
-    t = str
+    book = int
+    chapter = int
+    verse = int
+    text = str
 
     class Config:
         orm_mode = True
@@ -71,10 +71,10 @@ class TableKJV(BaseModel):
 
 class TableWEB(BaseModel):
     id = int
-    b = int
-    c = int
-    v = int
-    t = str
+    book = int
+    chapter = int
+    verse = int
+    text = str
 
     class Config:
         orm_mode = True
@@ -82,10 +82,10 @@ class TableWEB(BaseModel):
 
 class TableYLT(BaseModel):
     id = int
-    b = int
-    c = int
-    v = int
-    t = str
+    book = int
+    chapter = int
+    verse = int
+    text = str
 
     class Config:
         orm_mode = True
