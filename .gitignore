@@ -5,12 +5,12 @@ lib
 *.log
 config
 __pycache__/
-.vscode/
 pyvenv.cfg
 README_test.md
 README_old.md
 docker/.env_old
-*.env*
+*.env
+.env_*
 
 
 # The following was taken from:
