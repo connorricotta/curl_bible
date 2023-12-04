@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   test-code:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu
     container: quay.io/connorricotta/ubuntu_node:latest
     strategy:
       matrix:
@@ -50,7 +50,7 @@ jobs:
     # Only run if the push has a new version and the previous tests pass.
     needs: test-code
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu
     container: quay.io/connorricotta/ubuntu_node:latest
     steps:
       - name: Checkout code
