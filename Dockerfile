@@ -1,5 +1,6 @@
 FROM python:3.10
 
+
 WORKDIR /code
 
 COPY Pipfile Pipfile.lock /code/
@@ -10,6 +11,7 @@ RUN pipenv install --system --deploy
 COPY curl_bible/ ./curl_bible
 
 # Run as non-root
+# Test
 ARG UID=10000
 ARG GID=10000
 
