@@ -13,9 +13,6 @@ jobs:
         id: setup-python
         uses: https://github.com/actions/setup-python@v2
 
-      - name: Make venv
-        run: mkdir .venv
-
       - name: Show key
         run: echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
 
