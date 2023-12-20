@@ -11,6 +11,7 @@ README_old.md
 docker/.env_old
 *.env
 .env_*
+*.swp
 
 
 # The following was taken from:
@@ -175,3 +176,4 @@ python/log/bible.log.old
 python/requirements.txt.old
 python/pipfile.old
 .env
+.compose.yaml.swp

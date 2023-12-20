@@ -27,7 +27,7 @@ jobs:
           key: testing123
 
       - name: Install Python
-        if: step.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           mkdir .venv
           pipenv install --dev
