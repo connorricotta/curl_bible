@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Set up Python
         id: setup-python
-        uses: actions/setup-python@v2
+        uses: https://github.com/actions/setup-python@v2
 
       - name: Make venv
         run: mkdir .venv
