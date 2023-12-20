@@ -20,7 +20,21 @@ jobs:
         run: echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
 
       - name: Setup cache
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: .venv
+          key: testing123
+
+      - name: Install Python
+        if: step.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir .venv
+          pipenv install --dev
+
+      - name: Setup cache
+        uses: actions/cache/save@v3
+        id: cache
         with:
           path: .venv
           key: testing123
