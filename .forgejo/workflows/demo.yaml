@@ -16,8 +16,11 @@ jobs:
       - name: Make venv
         run: mkdir .venv
 
+      - name: Show key
+        run: echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
+
       - name: Setup cache
         uses: actions/cache@v3
         with:
           path: .venv
-          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          key: testing123
