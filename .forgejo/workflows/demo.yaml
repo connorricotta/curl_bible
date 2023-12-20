@@ -35,3 +35,6 @@ jobs:
         with:
           path: .venv
           key: testing1234
+
+      - name: Check cache
+        run: ls .venv
