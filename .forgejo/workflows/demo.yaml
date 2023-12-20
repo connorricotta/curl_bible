@@ -3,5 +3,25 @@ jobs:
   test:
     runs-on: ubuntu
     container: quay.io/connorricotta/ubuntu_node:latest
+    strategy:
+      matrix:
+        # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9"]
+
     steps:
-      - run: echo "Come on really?"
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v2
+
+      - name: Make venv
+        run: mkdir .venv
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: ${{ runner.os }}-python-${{ steps.setup-python.outputs.python-version }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+            - name: Checkout code
+              uses: actions/checkout@v3
+              with:
+                fetch-depth: 0
