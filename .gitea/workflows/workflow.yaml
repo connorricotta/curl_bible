@@ -1,6 +1,6 @@
 name: Test, Publish Image, and Deploy
 
-on: [push]
+# on: [push]
 
 jobs:
   test-code:
