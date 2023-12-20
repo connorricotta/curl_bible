@@ -1,6 +1,7 @@
 on: [push]
 jobs:
   test:
-    runs-on: docker
+    runs-on: ubuntu
+    container: quay.io/connorricotta/ubuntu_node:latest
     steps:
       - run: Come on really?
