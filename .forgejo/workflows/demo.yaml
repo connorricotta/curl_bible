@@ -20,4 +20,4 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .venv
-          key: ${{ runner.os }}-python-${{ steps.setup-python.outputs.python-version }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
