@@ -39,7 +39,7 @@ jobs:
           echo "HASH=$hash">> "$GITHUB_OUTPUT"
 
       - name: Display hash
-        run: echo "${{ steps.hash.outputs.HASH }}"
+        run: echo "${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}"
 
       - name: Make Virtual Environment Directory
         run: mkdir .venv
@@ -49,10 +49,10 @@ jobs:
         id: cache
         with:
           path: .venv
-          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
 
       - name: Install Python if cache failed.
-        if: steps.cache.outputs.cache-hit != 'true' && false
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           pipenv install --dev
 
