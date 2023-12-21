@@ -31,7 +31,9 @@ jobs:
         run: |
           ls
           head Pipfile.lock
-          echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
+
+      - name: Show hashfiles
+          echo "${{ hashFiles('Pipfile.lock') }}"
 
       - name: Make Virtual Environment Directory
         run: mkdir .venv
@@ -44,7 +46,7 @@ jobs:
           key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
 
       - name: Install Python if cache failed.
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && false
         run: |
           pipenv install --dev
 
