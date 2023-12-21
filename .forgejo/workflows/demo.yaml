@@ -32,8 +32,14 @@ jobs:
           ls
           head Pipfile.lock
 
-      - name: Show hashfiles
-        run: echo "${{ hashFiles('Pipfile.lock') }}"
+      - name: Create hashfiles
+        id: hash
+        run: |
+          hash=$(md5sum Pipfile.lock | awk '{ print $1}')'
+          echo "HASH=$hash">> "$GITHUB_OUTPUT"
+
+      - name: Display hash
+        run: echo "${{ steps.hash.outputs.HASH }}"
 
       - name: Make Virtual Environment Directory
         run: mkdir .venv
