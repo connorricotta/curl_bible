@@ -7,7 +7,7 @@ jobs:
   simple:
     runs-on: ubuntu
     container:
-      image: code.forgejo.org/oci/debian:bookworm
+      image: quay.io/connorricotta/ubuntu_node:latest
 
     services:
       pgsql:
