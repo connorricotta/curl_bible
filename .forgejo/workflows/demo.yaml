@@ -33,7 +33,7 @@ jobs:
           head Pipfile.lock
 
       - name: Show hashfiles
-          echo "${{ hashFiles('Pipfile.lock') }}"
+        run: echo "${{ hashFiles('Pipfile.lock') }}"
 
       - name: Make Virtual Environment Directory
         run: mkdir .venv
