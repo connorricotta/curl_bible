@@ -11,6 +11,7 @@ jobs:
 
     services:
       pgsql:
+        container_name: bible_db
         image: code.forgejo.org/oci/postgres:15
         env:
           POSTGRES_DB: test
