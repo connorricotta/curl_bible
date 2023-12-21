@@ -7,34 +7,61 @@ jobs:
       matrix:
         # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
         python-version: ["3.9"]
+    services:
+      mysql:
+        image: docker.io/library/mariadb:10.5
+        container_name: bible_db
+        hostname: "bible_db"
+        volumes:
+          - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
+        environment:
+          MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
+          MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
+          MYSQL_USER: "${{ secrets.CI_MYSQL_USERNAME }}"
+          MYSQL_PASSWORD: "${{ secrets.CI_MYSQL_PASSWORD }}"
+          MYSQL_DATABASE: "${{ secrets.CI_MYSQL_DATABASE }}"
 
     steps:
-      - name: Set up Python
-        id: setup-python
-        uses: https://github.com/actions/setup-python@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Show key
-        run: echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
+        run: |
+          ls
+          head Pipfile.lock
+          echo "${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}"
 
-      - name: Setup cache
+      - name: Make Virtual Environment Directory
+        run: mkdir .venv
+
+      - name: Restore from cache (if it exists)
         uses: actions/cache/restore@v3
         id: cache
         with:
           path: .venv
-          key: testing1234
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
 
-      - name: Install Python
+      - name: Install Python if cache failed.
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          mkdir .venv
           pipenv install --dev
 
-      - name: Setup cache
+      - name: Save to cache
         uses: actions/cache/save@v3
         id: cache
         with:
           path: .venv
-          key: testing1234
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
 
-      - name: Check cache
-        run: ls .venv
+      - name: Setup Env file
+        run: |
+          echo "${{ secrets.CI_ENV_FILE }}" > .env
+
+      - name: Run Tests
+        run: |
+          pipenv run flake8 .
+          pipenv run bandit .
+          pipenv run isort .
+          pipenv run black .
