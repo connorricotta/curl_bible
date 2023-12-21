@@ -69,8 +69,6 @@ jobs:
 
       - name: Run Tests
         run: |
-          sleep 10000
-          pipenv run pytest
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .

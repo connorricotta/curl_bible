@@ -1,0 +1,67 @@
+on: [push]
+
+jobs:
+  #
+  # No volume involved
+  #
+  simple:
+    runs-on: ubuntu
+    container: quay.io/connorricotta/ubuntu_node:latest
+    container:
+      image: code.forgejo.org/oci/debian:bookworm
+
+    services:
+      pgsql:
+        image: code.forgejo.org/oci/postgres:15
+        env:
+          POSTGRES_DB: test
+          POSTGRES_PASSWORD: postgres
+    steps:
+      - run: |
+          apt-get update -qq
+          apt-get install -y -qq  postgresql-client
+          PGPASSWORD=postgres psql -h pgsql -U postgres -c '\dt' test
+  #
+  # A --volume option will expose the volume from the docker host to the job
+  #
+  volume-on-step:
+    needs: [simple]
+    runs-on: ubuntu
+    container: quay.io/connorricotta/ubuntu_node:latest
+    container:
+      image: code.forgejo.org/oci/debian:bookworm
+      options: "--volume /srv/example-service-volume-valid:/srv/example-service-volume-valid --volume /srv/example-service-volume-invalid:/srv/example-service-volume-invalid"
+
+    steps:
+      - run: |
+          test -f /srv/example-service-volume-valid
+          ! test -f /srv/example-service-volume-invalid
+
+  #
+  # A --volume option will expose the volume from the docker host to the service
+  #
+  volume-on-service:
+    needs: [volume-on-step]
+    runs-on: ubuntu
+    container: quay.io/connorricotta/ubuntu_node:latest
+    container:
+      image: code.forgejo.org/oci/debian:bookworm
+      options: "--volume /srv/example-service-volume-valid:/srv/example-service-volume-valid"
+
+    services:
+      myservice:
+        image: code.forgejo.org/oci/debian:bookworm
+        options: "--volume /srv/example-service-volume-valid:/srv/example-service-volume-valid"
+        cmd:
+          [
+            "bash",
+            "-c",
+            "echo -n SUCCESS > /srv/example-service-volume-valid ; sleep infinity",
+          ]
+
+    steps:
+      - run: |
+          set -x
+          f=/srv/example-service-volume-valid
+          test -f $f
+          test $(cat $f) = SUCCESS
