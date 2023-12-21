@@ -61,7 +61,7 @@ jobs:
         id: cache
         with:
           path: .venv
-          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
 
       - name: Setup Env file
         run: |
@@ -69,6 +69,7 @@ jobs:
 
       - name: Run Tests
         run: |
+          pipenv run pytest
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .
