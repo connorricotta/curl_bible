@@ -6,7 +6,6 @@ jobs:
   #
   simple:
     runs-on: ubuntu
-    container: quay.io/connorricotta/ubuntu_node:latest
     container:
       image: code.forgejo.org/oci/debian:bookworm
 
@@ -27,7 +26,6 @@ jobs:
   volume-on-step:
     needs: [simple]
     runs-on: ubuntu
-    container: quay.io/connorricotta/ubuntu_node:latest
     container:
       image: code.forgejo.org/oci/debian:bookworm
       options: "--volume /srv/example-service-volume-valid:/srv/example-service-volume-valid --volume /srv/example-service-volume-invalid:/srv/example-service-volume-invalid"
@@ -43,7 +41,6 @@ jobs:
   volume-on-service:
     needs: [volume-on-step]
     runs-on: ubuntu
-    container: quay.io/connorricotta/ubuntu_node:latest
     container:
       image: code.forgejo.org/oci/debian:bookworm
       options: "--volume /srv/example-service-volume-valid:/srv/example-service-volume-valid"
