@@ -1,16 +1,16 @@
 version: '3'
 
 services:
-  mariadb:
-    image: docker.io/library/mariadb:10.5
-    container_name: bible_db
+  bible_db:
+    image: quay.io/connorricotta/bible_db:latest
+    container_name: bible_db_new
     hostname: "bible_db"
-    volumes:
-      - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
+    # volumes:
+    #   - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
-      MYSQL_USER: "${MYSQL_USERNAME}"
+      MYSQL_USERNAME: "${MYSQL_USERNAME}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
     restart: always

@@ -1,4 +1,4 @@
-on: [push]
+# on: [push]
 
 jobs:
   #
@@ -10,8 +10,7 @@ jobs:
       image: quay.io/connorricotta/ubuntu_node:latest
 
     services:
-      pgsql:
-        container_name: bible_db
+      bible_db:
         image: code.forgejo.org/oci/postgres:15
         env:
           POSTGRES_DB: test

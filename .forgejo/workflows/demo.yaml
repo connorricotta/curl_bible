@@ -2,24 +2,23 @@
 jobs:
   test:
     runs-on: ubuntu
-    container: quay.io/connorricotta/ubuntu_node:latest
-    strategy:
-      matrix:
-        # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
-        python-version: ["3.9"]
+    container:
+      image: quay.io/connorricotta/ubuntu_node:latest
+
     services:
-      mysql:
-        image: docker.io/library/mariadb:10.5
-        container_name: bible_db
-        hostname: "bible_db"
-        volumes:
-          - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
-        environment:
+      bible_db:
+        image: quay.io/connorricotta/ubuntu_node:latest
+        env:
           MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
           MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
-          MYSQL_USER: "${{ secrets.CI_MYSQL_USERNAME }}"
+          MYSQL_USERNAME: "${{ secrets.CI_MYSQL_USERNAME }}"
           MYSQL_PASSWORD: "${{ secrets.CI_MYSQL_PASSWORD }}"
           MYSQL_DATABASE: "${{ secrets.CI_MYSQL_DATABASE }}"
+
+    # strategy:
+    #   matrix:
+    #     # python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+    #     python-version: ["3.9"]
 
     steps:
       - name: Checkout code
@@ -27,15 +26,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show key
-        run: |
-          ls
-          head Pipfile.lock
-
       - name: Create hashfiles
         id: hash
         run: |
-          hash=$(md5sum Pipfile.lock | awk '{ print $1}')
+          hash=$(md5sum curl_bible/Pipfile.lock | awk '{ print $1}')
           echo "HASH=$hash">> "$GITHUB_OUTPUT"
 
       - name: Display hash
@@ -48,27 +42,30 @@ jobs:
         uses: actions/cache/restore@v3
         id: cache
         with:
-          path: .venv
+          path: curl_bible/.venv
           key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
 
       - name: Install Python if cache failed.
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          cd curl_bible
           pipenv install --dev
 
       - name: Save to cache
         uses: actions/cache/save@v3
         id: cache
         with:
-          path: .venv
+          path: curl_bible/.venv
           key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
 
       - name: Setup Env file
         run: |
           echo "${{ secrets.CI_ENV_FILE }}" > .env
+          cp .env curl_bible/.env
 
       - name: Run Tests
         run: |
+          cd curl_bible
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .

@@ -9,5 +9,6 @@ sed -i "s/MYSQL_ROOT_PASSWORD=.*$/MYSQL_ROOT_PASSWORD=$DB_ROOT_PASS/g" .env
 
 # Copy it inside the docker folder
 cp .env curl_bible/.env
+cp .env bible_db/.env
 echo -e "\e[32mFiles successfully modified!\e[0m"
 echo -e "Regular DB User is: \e[1m$DB_USER_PASS\e[0m\nRoot DB User is:    \e[1m$DB_ROOT_PASS\e[0m"

@@ -177,3 +177,6 @@ python/requirements.txt.old
 python/pipfile.old
 .env
 .compose.yaml.swp
+buildx.sh
+bible_db/bible-mysql.sql
+bible_db/old.sql
