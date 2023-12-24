@@ -63,6 +63,7 @@ jobs:
       - name: Run Tests
         run: |
           cd curl_bible
+          sleep 1000
           curl bible_db
           pipenv run pytest tests/
           pipenv run flake8 .
