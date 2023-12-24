@@ -1,4 +1,4 @@
-# on: [push]
+on: [push]
 jobs:
   test:
     runs-on: ubuntu
@@ -32,11 +32,8 @@ jobs:
           hash=$(md5sum curl_bible/Pipfile.lock | awk '{ print $1}')
           echo "HASH=$hash">> "$GITHUB_OUTPUT"
 
-      - name: Display hash
-        run: echo "${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}"
-
       - name: Make Virtual Environment Directory
-        run: mkdir .venv
+        run: mkdir curl_bible/.venv
 
       - name: Restore from cache (if it exists)
         uses: actions/cache/restore@v3
