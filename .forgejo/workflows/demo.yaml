@@ -63,7 +63,7 @@ jobs:
       - name: Run Tests
         run: |
           cd curl_bible
-          ping bible_db
+          curl bible_db
           pipenv run pytest tests/
           pipenv run flake8 .
           pipenv run bandit .
