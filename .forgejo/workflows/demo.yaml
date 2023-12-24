@@ -7,7 +7,7 @@ jobs:
 
     services:
       bible_db:
-        image: quay.io/connorricotta/ubuntu_node:latest
+        image: quay.io/connorricotta/bible_db:latest
         env:
           MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
           MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
