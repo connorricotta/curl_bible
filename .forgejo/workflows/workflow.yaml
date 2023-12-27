@@ -102,7 +102,7 @@ jobs:
           push: true
           cacheFrom: type=registry,ref=${{ gitea.repository }}:buildcache
           cacheTo: type=registry,ref=${{ gitea.repository }}:buildcache,mode=max
-          tags:
+          tags: |
             - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
             - ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }}
 
