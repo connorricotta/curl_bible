@@ -14,7 +14,7 @@ from sqlalchemy.orm.decl_api import DeclarativeMeta
 class DatabaseSettings(BaseSettings):
     DEBUG: bool
     DB_CONNECT_ATTEMPTS: int
-    MYSQL_USERNAME: str
+    MYSQL_USER: str
     MYSQL_PASSWORD: str
     MYSQL_HOST: str
     MYSQL_DATABASE: str
@@ -34,7 +34,7 @@ try:
 except gaierror:
     db_settings.MYSQL_HOST = "localhost"
 
-SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USERNAME}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}:{db_settings.MYSQL_DB_PORT}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
+SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USER}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}:{db_settings.MYSQL_DB_PORT}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
 if not db_settings.DEBUG:
     sleep(30)

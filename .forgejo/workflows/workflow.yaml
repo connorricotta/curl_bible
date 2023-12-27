@@ -11,7 +11,7 @@ jobs:
         env:
           MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
           MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
-          MYSQL_USER: "${{ secrets.CI_MYSQL_USERNAME }}"
+          MYSQL_USER: "${{ secrets.CI_MYSQL_USER }}"
           MYSQL_PASSWORD: "${{ secrets.CI_MYSQL_PASSWORD }}"
           MYSQL_DATABASE: "${{ secrets.CI_MYSQL_DATABASE }}"
 
