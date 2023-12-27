@@ -3,15 +3,10 @@ from time import sleep
 
 from pydantic import BaseSettings
 from sqlalchemy import create_engine
-
-# from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 
-# from config import create_database_settings
 
-
-# db_settings = create_database_settings()
 class DatabaseSettings(BaseSettings):
     DEBUG: bool
     DB_CONNECT_ATTEMPTS: int
