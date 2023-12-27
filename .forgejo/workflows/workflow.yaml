@@ -28,7 +28,7 @@ jobs:
       - name: Create hashfiles
         id: hash
         run: |
-          hash=$(md5sum curl_bible/Pipfile.lock | awk '{ print $1}')
+          hash=$(md5sum Pipfile.lock | awk '{ print $1}')
           echo "HASH=$hash">> "$GITHUB_OUTPUT"
 
       - name: Make Virtual Environment Directory
