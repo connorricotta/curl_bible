@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from ..server import app
+from curl_bible.server import app
 
 client = TestClient(app)
 
