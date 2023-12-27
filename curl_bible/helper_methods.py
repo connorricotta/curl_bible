@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 from fastapi.responses import PlainTextResponse
 
-from curl_bible import __version__
+from config import __version__
 
 router = APIRouter()
 

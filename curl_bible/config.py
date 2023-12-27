@@ -7,8 +7,20 @@ from textwrap import TextWrapper
 from fastapi import HTTPException, status
 from pydantic import BaseModel, BaseSettings, Field, validator
 
-from curl_bible import schema
-from curl_bible.book_config import Book
+# import db_schemas as schemas
+import db_models_sqlalchemy as schemas
+
+# from schema import (
+#     KeyAbbreviationsEnglish,
+#     TableASV,
+#     TableBBE,
+#     TableKJV,
+#     TableWEB,
+#     TableYLT,
+# )
+from book_config import Book
+
+__version__ = "0.1.29"
 
 
 class Settings(BaseSettings):
@@ -49,35 +61,16 @@ class Settings(BaseSettings):
     VERSE_NUMBERS: bool = True
 
 
-class DatabaseSettings(BaseSettings):
-    DEBUG: bool
-    DB_CONNECT_ATTEMPTS: int
-    MYSQL_USER: str
-    MYSQL_PASSWORD: str
-    MYSQL_HOST: str
-    MYSQL_DATABASE: str
-    MYSQL_DB_PORT: int
-
-    class Config:
-        env_file = "curl_bible/.env"
-
-
 @lru_cache()
 def create_settings():
     return Settings()
-
-
-@lru_cache()
-def create_database_settings():
-    return DatabaseSettings()
 
 
 def create_request_verse(**kwargs) -> str:
     if set(kwargs.keys()) == {
         "book",
         "chapter_start",
-        "chapter_end",
-        "verse_start",
+        "chapter_end" "verse_start",
         "verse_end",
     }:
         return f"{kwargs.get('book')} {kwargs.get('chapter_start')}:{kwargs.get('verse_start')} - {kwargs.get('chapter_end')}:{kwargs.get('verse_end')}"
@@ -412,17 +405,17 @@ def multi_query(db, **kwargs) -> str:
         options.text_only = True
     if options is not None:
         if options.version == "ASV":
-            version = schema.TableASV
+            version = schemas.TableASV
         elif options.version == "BBE":
-            version = schema.TableBBE
+            version = schemas.TableBBE
         elif options.version == "JKV":
-            version = schema.TableKJV
+            version = schemas.TableKJV
         elif options.version == "WEB":
-            version = schema.TableWEB
+            version = schemas.TableWEB
         elif options.version == "YLT":
-            version = schema.TableYLT
+            version = schemas.TableYLT
     else:
-        version = schema.TableASV
+        version = schemas.TableASV
 
     # Query single verse
     if {"book", "chapter", "verse"} == set(kwargs.keys()):
@@ -559,9 +552,9 @@ def flatten_args(db, **kwargs):
 
     if "book" in kwargs.keys():
         data = (
-            db.query(schema.KeyAbbreviationsEnglish)
-            .filter(schema.KeyAbbreviationsEnglish.name == kwargs.get("book"))
-            .filter(schema.KeyAbbreviationsEnglish.primary == "1")
+            db.query(schemas.KeyAbbreviationsEnglish)
+            .filter(schemas.KeyAbbreviationsEnglish.name == kwargs.get("book"))
+            .filter(schemas.KeyAbbreviationsEnglish.primary == "1")
         ).first()
         if data is not None:
             kwargs["book"] = str(data.book)

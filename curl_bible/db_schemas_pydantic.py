@@ -1,26 +1,13 @@
 from pydantic import BaseModel
 
-
-class Hero(BaseModel):
-    id = int
-    name = str
-    secret_name = str
-    age = int
-
-    class Config:
-        orm_mode = True
-
-
-class UserBase(BaseModel):
-    username: str
-    password: str
+# These are the Pydantic models for the database
 
 
 class KeyAbbreviationsEnglish(BaseModel):
-    id = int
-    name = str
-    book = int
-    primary = int
+    id: int
+    name: str
+    book: int
+    primary: bool
 
     class Config:
         orm_mode = True
