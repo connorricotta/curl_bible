@@ -8,7 +8,7 @@ from curl_bible.database import Base
 class KeyAbbreviationsEnglish(Base):
     __tablename__ = "key_abbreviations_english"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String)
+    name = Column(String(255))
     book = Column(Integer)
     primary = Column(Boolean)
 
@@ -19,7 +19,7 @@ class TableASV(Base):
     book = Column(Integer)
     chapter = Column(Integer)
     verse = Column(Integer)
-    text = Column(String)
+    text = Column(String(255))
 
 
 class TableBBE(Base):
