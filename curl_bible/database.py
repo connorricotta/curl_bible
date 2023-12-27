@@ -1,12 +1,11 @@
-from socket import IPPROTO_TCP, getaddrinfo, gaierror
+from socket import IPPROTO_TCP, gaierror, getaddrinfo
 from time import sleep
 
+from pydantic import BaseSettings
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.decl_api import DeclarativeMeta
-
-from pydantic import BaseSettings
 
 # from config import create_database_settings
 
@@ -35,7 +34,7 @@ try:
 except gaierror:
     db_settings.MYSQL_HOST = "localhost"
 
-SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USERNAME}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
+SQLALCHEMY_DATABASE_URL = f"mariadb+mariadbconnector://{db_settings.MYSQL_USERNAME}:{db_settings.MYSQL_PASSWORD}@{db_settings.MYSQL_HOST}:{db_settings.MYSQL_DB_PORT}/{db_settings.MYSQL_DATABASE}?charset=utf8mb4"
 
 if not db_settings.DEBUG:
     sleep(30)

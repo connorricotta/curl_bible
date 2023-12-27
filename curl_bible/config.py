@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel, BaseSettings, Field, validator
 
 # import db_schemas as schemas
-import db_models_sqlalchemy as schemas
+import curl_bible.db_models as schemas
 
 # from schema import (
 #     KeyAbbreviationsEnglish,
@@ -18,7 +18,7 @@ import db_models_sqlalchemy as schemas
 #     TableWEB,
 #     TableYLT,
 # )
-from book_config import Book
+from curl_bible.book_config import Book
 
 __version__ = "0.1.29"
 

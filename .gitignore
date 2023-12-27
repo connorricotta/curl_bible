@@ -180,3 +180,5 @@ python/pipfile.old
 buildx.sh
 bible_db/bible-mysql.sql
 bible_db/old.sql
+curl_bible/models.py
+curl_bible/schemas.py

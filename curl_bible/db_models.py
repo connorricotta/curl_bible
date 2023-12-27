@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Boolean, Column, Integer, String
 
-from database import Base
+from curl_bible.database import Base
 
 # These are the DB models for querying
 

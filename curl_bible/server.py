@@ -14,26 +14,26 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from config import (
+from curl_bible.config import (
     Options,
+    __version__,
     create_book,
     create_request_verse,
     create_settings,
     flatten_args,
     multi_query,
-    __version__,
 )
-from database import engine, get_database_session
-from helper_methods import router as helper_methods_router
+from curl_bible.database import engine, get_database_session
 
 # from schema.Base import metadata
-from db_models_sqlalchemy import Base
+from curl_bible.db_models import Base
+from curl_bible.helper_methods import router as helper_methods_router
 
 limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
 
 app = FastAPI(version=__version__, docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
 app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

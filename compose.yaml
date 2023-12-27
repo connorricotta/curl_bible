@@ -3,19 +3,21 @@ version: '3'
 services:
   bible_db:
     image: quay.io/connorricotta/bible_db:latest
-    container_name: bible_db_new
+    container_name: bible_db
     hostname: "bible_db"
     # volumes:
     #   - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
-      MYSQL_USERNAME: "${MYSQL_USERNAME}"
+      MYSQL_USER: "${MYSQL_USERNAME}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
     restart: always
     ports:
       - 33060:3306
+    env_file:
+      - .env
   
   curl_bible:
     image: quay.io/connorricotta/curl_bible:latest

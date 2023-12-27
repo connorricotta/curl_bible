@@ -3,9 +3,31 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypipython"
+
 [packages]
+fastapi = "==0.95.1"
+gunicorn = "*"
+python-dotenv = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+httpx = "*"
+sqlalchemy = "==2.0.23"
+mariadb = "==1.1.9"
+pydantic = "==1.10.11"
+bump2version = "*"
+slowapi = "*"
 
 [dev-packages]
+flake8 = "*"
+black = "*"
+bandit = "*"
+pytest = "*"
+isort = "*"
+pre-commit = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.10"
