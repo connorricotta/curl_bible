@@ -59,7 +59,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          pipenv run pytest 
+          pipenv run pytest --log-cli-level=10 
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .
