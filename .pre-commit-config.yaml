@@ -5,7 +5,7 @@ repos:
         name: pytest-check
         stages: [commit]
         types: [python]
-        entry: pipenv run python -m pytest
+        entry: pipenv run pytest
         language: system
         # pass_filenames: false
         # always_run: true
