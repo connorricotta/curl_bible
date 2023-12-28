@@ -38,6 +38,12 @@ app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+try:
+    app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
+except RuntimeError:
+    app.mount("/static", StaticFiles(directory="../curl_bible/static"), name="static")
+
+
 # Initalize DB
 Base.metadata.create_all(bind=engine)
 

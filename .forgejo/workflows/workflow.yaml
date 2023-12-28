@@ -58,9 +58,10 @@ jobs:
           echo "${{ secrets.CI_ENV_FILE }}" > .env
           cp .env curl_bible/.env
 
+      #pipenv run python -m pytest
       - name: Run Tests
         run: |
-          pipenv run python -m pytest
+          pipenv run pytest
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .
