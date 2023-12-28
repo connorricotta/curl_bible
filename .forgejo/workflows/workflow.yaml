@@ -60,7 +60,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest curl_bible/tests/
+          pipenv run python -m pytest
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .
