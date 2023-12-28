@@ -2,12 +2,12 @@ FROM python:3.10
 
 WORKDIR /code
 
-COPY Pipfile Pipfile.lock /code/
+COPY Pipfile Pipfile.lock container-start.sh .env /code/
 
 RUN pip install pipenv
 RUN pipenv install --system --deploy
 
-COPY . .
+COPY curl_bible/ .
 
 # Run as non-root
 ARG UID=10000
@@ -16,7 +16,7 @@ ARG GID=10000
 RUN groupadd -g "${GID}" solomon \
     && useradd --create-home --no-log-init -u "${UID}" -g "${GID}" solomon
 
-RUN chown solomon:solomon /code
+RUN chown -R solomon:solomon /code
 
 USER solomon
 

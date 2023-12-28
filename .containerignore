@@ -2,3 +2,4 @@ sql/*
 .venv/*
 *pytest_cache*
 *pycache*
+*.forgejo*

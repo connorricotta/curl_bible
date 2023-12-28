@@ -1,7 +1,10 @@
 from fastapi.testclient import TestClient
 
-from curl_bible.server import app
+# from curl_bible.server import app
+# from ..server import app
+from curl_bible import server
 
+app = server.app
 client = TestClient(app)
 
 

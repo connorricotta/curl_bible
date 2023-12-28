@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          lfs: false
 
       - name: Create hashfiles
         id: hash
@@ -59,8 +60,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          sleep 10000
-          pipenv run pytest --log-cli-level=10 
+          python -m pytest curl_bible/tests/
           pipenv run flake8 .
           pipenv run bandit .
           pipenv run isort .
