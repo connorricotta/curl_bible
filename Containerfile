@@ -2,7 +2,7 @@ FROM python:3.10
 
 WORKDIR /code
 
-COPY Pipfile Pipfile.lock container-start.sh .env /code/
+COPY Pipfile Pipfile.lock container-start.sh /code/
 
 RUN pip install pipenv
 RUN pipenv install --system --deploy
