@@ -16,9 +16,9 @@ services:
       - 33060:3306
     env_file:
       - .env
-  
+
   curl_bible:
-    image: quay.io/connorricotta/curl_bible:test1
+    image: quay.io/connorricotta/curl_bible:test
     hostname: "curl_bible"
     container_name: curl_bible
     ports:
