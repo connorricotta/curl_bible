@@ -83,28 +83,27 @@ jobs:
         uses: https://github.com/WyriHaximus/github-action-get-previous-tag@v1
         id: tag
 
-      - name: "Login to quay.io"
+      - name: "Login to docker.io"
         run: |
-          sleep 10000
-          echo ${{ secrets.QUAY_PASSWORD }} | docker login ${{ secrets.IMAGE_REGISTRY }} --password-stdin --username ${{ secrets.QUAY_USERNAME }}
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ secrets.IMAGE_REGISTRY }} --password-stdin --username ${{ secrets.DOCKER_USERNAME }}
 
-      - name: Set up QEMU
-        uses: https://github.com/docker/setup-qemu-action@v2
+      # - name: Set up QEMU
+      #   uses: https://github.com/docker/setup-qemu-action@v2
 
-      - name: Install buildx
-        id: buildx
-        uses: https://github.com/crazy-max/ghaction-docker-buildx@v1
-        with:
-          version: latest
+      # - name: Install buildx
+      #   id: buildx
+      #   uses: https://github.com/crazy-max/ghaction-docker-buildx@v1
+      #   with:
+      #     version: latest
 
       - name: Build docker images with buildx
         run: |
           docker buildx build \
-            -f Containerfile \
-            -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest \
-            -t ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} \
-            --cache-from type=local,src=/opt/build_cache/${{ gitea.repository }} \
-            --cache-to type=local,dest=/opt/build_cache/${{ gitea.repository }} \
+            --file Containerfile \
+            --tag ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest \
+            --tag ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} \
+            --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache,mode=max \
+            --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache  \
             --platform linux/amd64 \
             --push \
             .
