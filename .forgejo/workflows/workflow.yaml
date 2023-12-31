@@ -90,11 +90,11 @@ jobs:
       - name: Set up QEMU
         uses: https://github.com/docker/setup-qemu-action@v2
 
-      # - name: Install buildx
-      #   id: buildx
-      #   uses: https://github.com/crazy-max/ghaction-docker-buildx@v1
-      #   with:
-      #     version: latest
+      - name: Install buildx
+        id: buildx
+        uses: https://github.com/crazy-max/ghaction-docker-buildx@v1
+        with:
+          version: latest
 
       - name: Build docker images with buildx
         run: |
