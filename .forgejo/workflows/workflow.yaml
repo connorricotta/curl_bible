@@ -104,7 +104,7 @@ jobs:
             --tag ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} \
             --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache,mode=max \
             --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache  \
-            --platform linux/amd64 \
+            --platform linux/amd64,linux/arm/v7,linux/arm64 \
             --push \
             .
 

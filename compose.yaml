@@ -4,7 +4,7 @@ services:
   bible_db:
     image: quay.io/connorricotta/bible_db:latest
     container_name: bible_db
-    hostname: "bible_db"
+    hostname: bible_db
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
@@ -18,8 +18,8 @@ services:
       - .env
 
   curl_bible:
-    image: quay.io/connorricotta/curl_bible:test
-    hostname: "curl_bible"
+    image: docker.io/connorricotta/curl_bible:latest
+    hostname: curl_bible
     container_name: curl_bible
     ports:
       - 10000:10000
