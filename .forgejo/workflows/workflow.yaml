@@ -85,6 +85,7 @@ jobs:
 
       - name: "Login to quay.io"
         run: |
+          sleep 10000
           echo ${{ secrets.QUAY_PASSWORD }} | docker login ${{ secrets.IMAGE_REGISTRY }} --password-stdin --username ${{ secrets.QUAY_USERNAME }}
 
       - name: Set up QEMU
