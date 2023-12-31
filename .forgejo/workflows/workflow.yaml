@@ -88,7 +88,7 @@ jobs:
           echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ secrets.IMAGE_REGISTRY }} --password-stdin --username ${{ secrets.DOCKER_USERNAME }}
 
       - name: Set up QEMU
-        uses: https://github.com/docker/setup-qemu-action@v3
+        uses: https://github.com/docker/setup-qemu-action@v2
 
       # - name: Install buildx
       #   id: buildx
