@@ -4,7 +4,7 @@ jobs:
     if: 0==1
     runs-on: ubuntu
     container:
-      image: quay.io/connorricotta/ubuntu_node:latest
+      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
 
     services:
       bible_db:
@@ -72,7 +72,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -127,7 +127,7 @@ jobs:
     # if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
