@@ -4,11 +4,12 @@ jobs:
     if: 0==1
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
+      # image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
+      image: docker.io/connorricotta/ubuntu_node:latest
 
     services:
       bible_db:
-        image: quay.io/connorricotta/bible_db:latest
+        image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/bible_db:latest
         env:
           MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
           MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
