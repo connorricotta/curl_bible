@@ -143,8 +143,10 @@ jobs:
       # TODO: copy new compose file over
       - name: SSH to test
         run: |
+          echo "${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new" > deploy_path 
           sleep 100056
           echo "${{ secrets.ENV_FILE_PROD }}" > .env
+
           scp -i ssh_key -o "StrictHostKeyChecking no" \
             compose.yaml .env ${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new
           ssh -o "StrictHostKeyChecking no" -t -i ssh_key ${{ secrets.DEPLOY_HOST }} '
