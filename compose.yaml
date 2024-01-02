@@ -26,8 +26,6 @@ services:
     volumes:
       - ./log:/code/curl_bible/log
       - ./.env:/code/curl_bible/.env
-      # - ./curl_bible:/code/curl_bible
     restart: always
     env_file:
       - .env
-    entrypoint: sleep 10000
