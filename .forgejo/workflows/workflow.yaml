@@ -3,11 +3,11 @@ jobs:
   test:
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
+      image: docker.io/connorricotta/ubuntu_node:latest
 
     services:
       bible_db:
-        image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/bible_db:latest
+        image: docker.io/connorricotta/bible_db:latest
         env:
           MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
           MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
@@ -71,7 +71,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
+      image: docker.io/connorricotta/ubuntu_node:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -113,7 +113,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu
     container:
-      image: ${{ secrets.IMAGE_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/ubuntu_node:latest
+      image: docker.io/connorricotta/ubuntu_node:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
