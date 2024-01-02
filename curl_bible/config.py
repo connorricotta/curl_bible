@@ -20,7 +20,7 @@ import curl_bible.db_models as schemas
 # )
 from curl_bible.book_config import Book
 
-__version__ = "0.1.31"
+__version__ = "0.1.32"
 
 
 class Settings(BaseSettings):
