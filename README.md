@@ -111,9 +111,7 @@ curl bible.ricotta.dev/John/3/15-20
 
 3. Parameter Query (/?book=`Book`&chapter=`Chapter`&verse=`Verse`)
 
-```sh
-curl "bible.ricotta.dev?book=John&chapter=3&verse=15-20"
-```
+`curl "bible.ricotta.dev?book=John&chapter=3&verse=15-20"`
 
 ### These endpoints can be queried with the following formats.
 
