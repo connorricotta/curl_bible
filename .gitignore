@@ -1,5 +1,6 @@
 # Project Specific files
 db.conf
+build*.sh
 bin
 lib
 *.log
@@ -183,3 +184,4 @@ bible_db/old.sql
 curl_bible/models.py
 curl_bible/schemas.py
 bible_db/build.sh
+buildx.sh

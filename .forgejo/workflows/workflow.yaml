@@ -144,7 +144,7 @@ jobs:
       - name: SSH to test
         run: |
           echo "${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new" > deploy_path 
-          echo "${{ secrets.ENV_FILE_PROD }}" > .env
+          echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
           scp -i ssh_key -o "StrictHostKeyChecking no" \
             compose.yaml .env ${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new

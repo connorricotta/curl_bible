@@ -2,7 +2,7 @@ version: '3'
 
 services:
   bible_db:
-    image: quay.io/connorricotta/bible_db:latest
+    image: docker.io/connorricotta/bible_db:latest
     container_name: bible_db
     hostname: bible_db
     environment:
@@ -30,4 +30,4 @@ services:
     restart: always
     env_file:
       - .env
-    # entrypoint: sleep 10000
+    entrypoint: sleep 10000
