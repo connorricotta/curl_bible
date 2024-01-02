@@ -1,3 +1,3 @@
 FROM mariadb:latest
 
-COPY bible.sql /docker-entrypoint-initdb.d 
+COPY bible-sql.sql /docker-entrypoint-initdb.d 
