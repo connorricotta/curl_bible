@@ -143,10 +143,13 @@ jobs:
       # TODO: copy new compose file over
       - name: SSH to test
         run: |
+          sleep 10000
+          scp -i ssh_key -o "StrictHostKeyChecking no" \
+            ./compose.yaml ${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new
           ssh -o "StrictHostKeyChecking no" -t -i ssh_key ${{ secrets.DEPLOY_HOST }} '
             cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new
             podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
-            echo "${{ secrets.ENV_FILE_PROD }}" > curl_bible/.env
+            echo "${{ secrets.ENV_FILE_PROD }}" > .env
             chmod a+r curl_bible/.env
             cp -p curl_bible/.env .
             source curl_bible/.env
