@@ -143,7 +143,6 @@ jobs:
       # TODO: copy new compose file over
       - name: SSH to test
         run: |
-          sleep 10000
           ssh -o "StrictHostKeyChecking no" -t -i ssh_key ${{ secrets.DEPLOY_HOST }} '
             cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}.new
             podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
