@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # These are the Pydantic models for the database
 
@@ -8,31 +8,25 @@ class KeyAbbreviationsEnglish(BaseModel):
     name: str
     book: int
     primary: bool
-
-    class Config:
-        orm_mode = True
+    model_config: ConfigDict(from_attributes=True)
 
 
 class TableASV(BaseModel):
-    id = int
-    book = int
-    chapter = int
-    verse = int
-    text = str
-
-    class Config:
-        orm_mode = True
+    id: int
+    book: int
+    chapter: int
+    verse: int
+    text: str
+    model_config: ConfigDict(from_attributes=True)
 
 
 class TableBBE(BaseModel):
-    id = int
-    book = int
-    chapter = int
-    verse = int
-    text = str
-
-    class Config:
-        orm_mode = True
+    id: int
+    book: int
+    chapter: int
+    verse: int
+    text: str
+    model_config: ConfigDict(from_attributes=True)
 
 
 class Meta(BaseModel):
@@ -46,33 +40,27 @@ class DBReturn(BaseModel):
 
 
 class TableKJV(BaseModel):
-    id = int
-    book = int
-    chapter = int
-    verse = int
-    text = str
-
-    class Config:
-        orm_mode = True
+    id: int
+    book: int
+    chapter: int
+    verse: int
+    text: str
+    model_config: ConfigDict(from_attributes=True)
 
 
 class TableWEB(BaseModel):
-    id = int
-    book = int
-    chapter = int
-    verse = int
-    text = str
-
-    class Config:
-        orm_mode = True
+    id: int
+    book: int
+    chapter: int
+    verse: int
+    text: str
+    model_config: ConfigDict(from_attributes=True)
 
 
 class TableYLT(BaseModel):
-    id = int
-    book = int
-    chapter = int
-    verse = int
-    text = str
-
-    class Config:
-        orm_mode = True
+    id: int
+    book: int
+    chapter: int
+    verse: int
+    text: str
+    model_config: ConfigDict(from_attributes=True)

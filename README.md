@@ -7,7 +7,13 @@ Curl Bible
   </a>
   <a href="https://pypi.org/project/autopep8/"> 
     <img src="https://img.shields.io/badge/code--style-autopep8-blue" alt="Code Style Autopep8">
-  </a>
+  </a href="https://hub.docker.com/repository/docker/connorricotta/curl_bible">
+    <img src=" https://img.shields.io/docker/pulls/connorricotta/curl_bible " alt="Docker Pulls">
+  </a> 
+  <!-- </a href="https://github.com/connorricotta/curl_bible">
+    <img src="https://img.shields.io/github/pipenv/locked/python-version/connorricotta/curl_bible" alt="Python Version">
+  </a> -->
+
 </p>
 
 ![Screenshot 1](https://cdn.discordapp.com/attachments/775917117290709042/981019274560823346/unknown.png "Our logo")
@@ -17,29 +23,27 @@ Read passages from the bible using curl or HTTPie! All output to the terminal co
 ## Examples:
 
 ```sh
-  $ curl "bible.ricotta.dev/John:3:15-19?options=length=35,width=50"
+  curl "bible.ricotta.dev/John:3:15-19?options=length=35,width=50"
 
-  $ curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-19"
+  curl "bible.ricotta.dev/?book=John&chapter=3&verse=15-19"
 
-  $ curl "bible.ricotta.dev/John/3/15-19?version=YLT&text_only=True"
+  curl "bible.ricotta.dev/John/3/15-19?version=YLT&text_only=True"
 ```
 
-## Installation (Docker)
+## Installation
 
-1. Install [Docker-compose](https://docs.docker.com/compose/install/)
-2. Run the configuration script to generate a random password for both the root and regular database users.
+1. Ensure [Podman-compose](https://docs.docker.com/compose/install/) is installed.
+   docker-compose does also work, but has [security issues].
+2. Copy the compose file from the repo
+   `wget https://github.com/connorricotta/curl_bible/blob/main/compose.yaml `
+3. Copy .env.sample and rename to .env
+   `wget https://github.com/connorricotta/curl_bible/blob/main/.env.sample && mv .env.sample .env`
+4. Run the configuration script to generate a random password for both the root and regular database users.
+   `./install.sh `
 
-```sh
-$ ./install.sh
-```
-
-3. Start up the program.
-   - The Docker Image for the backend server will have to be built when ran for the first time.
+5. Start up the program.
    - The Database might take ~15 seconds to become ready for queries.
-
-```sh
-$ docker-compose up -d
-```
+     `docker-compose up -d`
 
 <details><summary><b>Show manual installation instructions</b></summary>
 
@@ -47,14 +51,14 @@ $ docker-compose up -d
 2. Change directory into the python directory and create a pipenv environment.
 
 ```sh
-$ cd python
-$ pipenv shell
+cd python
+pipenv shell
 ```
 
 3. Start up the backend server with this command (more options can be found [here](https://docs.gunicorn.org/en/stable/settings.html?highlight=logging#logging))
 
 ```sh
-$ gunicorn --bind 0.0.0.0:10000 wsgi:app --log-level warning --error-logfile error.log --capture-output --log-config logging.conf
+gunicorn --bind 0.0.0.0:10000 wsgi:app --log-level warning --error-logfile error.log --capture-output --log-config logging.conf
 ```
 
 4. Ensure that [mariadb](https://www.digitalocean.com/community/tutorials/how-to-install-mariadb-on-ubuntu-20-04) is installed and you are able to connect to it.
@@ -96,19 +100,19 @@ DB_PORT=3306
 1. Full Verse Query (/`Book`:`Chapter`:`Verse`)
 
 ```sh
-$ curl bible.ricotta.dev/John:3:15-20
+curl bible.ricotta.dev/John:3:15-20
 ```
 
 2. Slash Query (/`Book`/`Chapter`/`Verse`)
 
 ```sh
-$ curl bible.ricotta.dev/John/3/15-20
+curl bible.ricotta.dev/John/3/15-20
 ```
 
 3. Parameter Query (/?book=`Book`&chapter=`Chapter`&verse=`Verse`)
 
 ```sh
-$ curl "bible.ricotta.dev?book=John&chapter=3&verse=15-20"
+curl "bible.ricotta.dev?book=John&chapter=3&verse=15-20"
 ```
 
 ### These endpoints can be queried with the following formats.
@@ -151,17 +155,17 @@ The length, width, and output color of the returned book can be controlled by ap
 ### Examples:
 
 ```sh
-$ curl "bible.ricotta.dev/John/3/15-20?options=length=25,color_text=False,version=ASV"
+curl "bible.ricotta.dev/John/3/15-20?options=length=25,color_text=False,version=ASV"
 
-$ curl "bible.ricotta.dev/John/3/15-20?length=25&color_text=False&version=ASV"
+curl "bible.ricotta.dev/John/3/15-20?length=25&color_text=False&version=ASV"
 
-$ curl "bible.ricotta.dev/John/3/15-20?l=&w=50&c=False&v=ASV"
+curl "bible.ricotta.dev/John/3/15-20?l=&w=50&c=False&v=ASV"
 ```
 
 ### These options can be displayed with the command
 
 ```sh
-$ curl bible.ricotta.dev/help
+curl bible.ricotta.dev/help
 ```
 
 ### Versions
@@ -178,13 +182,13 @@ These versions are taken from https://github.com/scrollmapper/bible_databases
 #### Examples:
 
 ```sh
-$ curl bible.ricotta.dev/John/3/15-20?version=ASV
+curl bible.ricotta.dev/John/3/15-20?version=ASV
 
-$ curl "bible.ricotta.dev?book=John&chapter=3&version=ylt"
+curl "bible.ricotta.dev?book=John&chapter=3&version=ylt"
 ```
 
 ### These options can be displayed with the command
 
 ```sh
-$ curl bible.ricotta.dev/versions
+curl bible.ricotta.dev/versions
 ```

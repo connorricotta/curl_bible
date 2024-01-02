@@ -1,7 +1,7 @@
 from socket import IPPROTO_TCP, gaierror, getaddrinfo
 from time import sleep
 
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.orm.decl_api import DeclarativeMeta
@@ -15,9 +15,9 @@ class DatabaseSettings(BaseSettings):
     MYSQL_HOST: str
     MYSQL_DATABASE: str
     MYSQL_DB_PORT: int
-
-    class Config:
-        env_file = ".env"
+    MYSQL_ROOT_USER: str
+    MYSQL_ROOT_PASSWORD: str
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 db_settings = DatabaseSettings()

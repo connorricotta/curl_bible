@@ -9,16 +9,17 @@ verify_ssl = true
 name = "pypipython"
 
 [packages]
-fastapi = "==0.95.1"
+fastapi = "*"
 gunicorn = "*"
 python-dotenv = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 httpx = "*"
-sqlalchemy = "==2.0.23"
-mariadb = "==1.1.9"
-pydantic = "==1.10.11"
+sqlalchemy = "*"
+mariadb = "*"
+pydantic = "*"
 bump2version = "*"
 slowapi = "*"
+pydantic-settings = "*"
 
 [dev-packages]
 flake8 = "*"
