@@ -185,3 +185,5 @@ curl_bible/models.py
 curl_bible/schemas.py
 bible_db/build.sh
 buildx.sh
+~/.config/cni/net.d/cni.lock
+~/.config/cni/net.d/curl_bible_default.conflist
