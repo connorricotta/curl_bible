@@ -5,7 +5,7 @@ from math import ceil
 from textwrap import TextWrapper
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
 import curl_bible.db_models as schemas
@@ -134,15 +134,16 @@ def create_request_verse(**kwargs) -> str:
     if set(kwargs.keys()) == {
         "book",
         "chapter_start",
-        "chapter_end" "verse_start",
+        "chapter_end",
+        "verse_start",
         "verse_end",
     }:
         return f"{kwargs.get('book')} {kwargs.get('chapter_start')}:{kwargs.get('verse_start')} - {kwargs.get('chapter_end')}:{kwargs.get('verse_end')}"
-    elif set(kwargs.keys()) == {"book", "chapter", "verse_start", "verse_end"}:
+    if set(kwargs.keys()) == {"book", "chapter", "verse_start", "verse_end"}:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse_start')}-{kwargs.get('verse_end')}"
-    elif set(kwargs.keys()) == {"book", "chapter"}:
+    if set(kwargs.keys()) == {"book", "chapter"}:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}"
-    elif set(kwargs.keys()) == {"book", "chapter", "verse"}:
+    if set(kwargs.keys()) == {"book", "chapter", "verse"}:
         return f"{kwargs.get('book')} {kwargs.get('chapter')}:{kwargs.get('verse')}"
 
 
@@ -187,24 +188,22 @@ class OptionsNames:
 
 
 class Options(BaseModel):
-    color_text: bool | None = Field(default=True)
-    text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT)
-    version: str | None = Field(default=settings.VERSION_DEFAULT)
-    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0)
-    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0)
-    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS)
-    return_json: bool | None = Field(default=settings.JSON_DEFAULT)
+    color_text: bool | None = Field(default=True, alias="c")
+    text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT, alias="t")
+    version: str | None = Field(default=settings.VERSION_DEFAULT, alias="v")
+    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0, alias="l")
+    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0, alias="w")
+    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS, alias="n")
+    return_json: bool | None = Field(default=settings.JSON_DEFAULT, alias="j")
     options: str | None = None
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("options")
-    def contains_options(cls, user_options, values):
+    # pylint: disable=no-self-argument
+    @field_validator("options")
+    def name_must_contain_space(cls, user_options, values):
         """
-        In case the user passes in a list of options all attached to the option parameter, parse them here.
+        Parse the options parameter the user passes in a list of options all attached to the option parameter.
         Takes the argument "options=w=78,v=BBE,length=85,c=no", and update the options Object
         """
-
         default_options = OptionsNames()
         default_values = deepcopy(default_options.values)
         if user_options == "" or user_options is None:
@@ -231,26 +230,26 @@ class Options(BaseModel):
             default_values[default_options.to_long(option_name)] = option_value
 
         # Update the options passed to FastAPI to match the default_options dict.
-        values["color_text"] = is_bool(default_values.get("color_text"))
-        values["text_only"] = is_bool(default_values.get("text_only"))
-        values["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
-        values["return_json"] = is_bool(default_values.get("return_json"))
+        values.data["color_text"] = is_bool(default_values.get("color_text"))
+        values.data["text_only"] = is_bool(default_values.get("text_only"))
+        values.data["verse_numbers"] = is_bool(default_values.get("verse_numbers"))
+        values.data["return_json"] = is_bool(default_values.get("return_json"))
 
         # Ensure that 'width' or 'length' are integers and they are greater than 0
         if (isinstance(default_values.get("length"), int)) or (
             str(default_values.get("length")).isnumeric()
             and int(default_values.get("length")) > 0
         ):
-            values["length"] = int(default_values["length"])
+            values.data["length"] = int(default_values["length"])
 
         if (isinstance(default_values["width"], int)) or (
             str(default_values["width"]).isnumeric()
             and int(default_values["width"]) > 0
         ):
-            values["width"] = int(default_values["width"])
+            values.data["width"] = int(default_values["width"])
 
         if len(default_values["version"]) == 3:
-            values["version"] = default_values["version"].upper()
+            values.data["version"] = default_values["version"].upper()
 
         return user_options
 
@@ -331,7 +330,7 @@ def create_book(bible_verse: str, user_options: Options, request_verse: dict):
             book_parts = book.get_color()
         else:
             book_parts = book.get_no_color()
-        splitter = TextWrapper(width=(user_options.width // 2 - 2))
+        splitter = TextWrapper(width=user_options.width // 2 - 2)
 
     else:
         width = 80
@@ -580,17 +579,11 @@ def multi_query(db, **kwargs) -> str:
             kwargs["text"] = text
             kwargs["options"] = options
             return kwargs
-        # elif False:
-        # JSON Response
-        # TODO: finish this with proper queries
-        #     text = " ".join([query.text for query in data])
-        #     kwargs.update({"text": text})
-        #     return kwargs
-        else:
-            text = " ".join([query.text for query in data])
-            kwargs["text"] = text
-            kwargs["options"] = options
-            return kwargs
+
+        text = " ".join([query.text for query in data])
+        kwargs["text"] = text
+        kwargs["options"] = options
+        return kwargs
 
 
 def flatten_args(db, **kwargs):
@@ -606,8 +599,8 @@ def flatten_args(db, **kwargs):
         "verse_start",
         "verse_end",
     ]:
-        if argument in kwargs.keys():
-            if type(kwargs.get(argument)) == int:
+        if argument in kwargs:
+            if isinstance(kwargs.get(argument), int):
                 kwargs[argument] = str(kwargs.get(argument))
             if not str.isnumeric(kwargs.get(argument)):
                 raise UserError(f"Invalid {argument}! {argument} is not a number!")
@@ -616,7 +609,7 @@ def flatten_args(db, **kwargs):
                 argument
             )
 
-    if "book" in kwargs.keys():
+    if "book" in kwargs:
         data = (
             db.query(schemas.KeyAbbreviationsEnglish)
             .filter(schemas.KeyAbbreviationsEnglish.name == kwargs.get("book"))

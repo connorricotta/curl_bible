@@ -24,8 +24,6 @@ from curl_bible.config import (
     multi_query,
 )
 from curl_bible.database import engine, get_database_session
-
-# from schema.Base import metadata
 from curl_bible.db_models import Base
 from curl_bible.helper_methods import router as helper_methods_router
 
@@ -108,16 +106,16 @@ async def as_arguments_book_chapter_verse(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        kwargs.pop("request")
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
-        return PlainTextResponse(content=result)
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{query}")
@@ -151,16 +149,16 @@ async def query_many(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        kwargs.pop("request")
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
-        return PlainTextResponse(content=result)
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{book}/{chapter}")
@@ -181,15 +179,15 @@ async def entire_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        kwargs.pop("request")
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
@@ -237,15 +235,15 @@ async def flatten_out(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        kwargs.pop("request")
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
@@ -277,15 +275,15 @@ async def mutli_verse_same_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        kwargs.pop("request")
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
