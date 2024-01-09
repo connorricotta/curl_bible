@@ -4,8 +4,8 @@ from logging import INFO, basicConfig
 from math import ceil
 from textwrap import TextWrapper
 
-from fastapi import HTTPException, status
-from pydantic import BaseModel, Field, field_validator
+from fastapi import HTTPException, Request, status
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 import curl_bible.db_models as schemas
@@ -158,6 +158,10 @@ settings = create_settings()
 
 class OptionsNames:
     short_to_long = {
+        "color": "color_text",
+        "text": "text_only",
+        "numbers": "verse_numbers",
+        "json": "return_json",
         "c": "color_text",
         "l": "length",
         "t": "text_only",
@@ -187,15 +191,63 @@ class OptionsNames:
             return option
 
 
+class JSON(BaseModel):
+    # def __init__(self):
+    #     return super().__init__()
+
+    name: str = Field(alias="name1")
+    name2: str = Field(validation_alias=AliasChoices("name2", "name_2", "name_two"))
+    return_json: bool | None = Field(
+        default=False,
+        validation_alias=AliasChoices("j", "return_json", "json"),
+    )
+
+    # pylint: disable=no-self-argument
+    @field_validator("name")
+    def name_must_contain_space(cls, user_options, values):
+        pass
+
+
 class Options(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     color_text: bool | None = Field(default=True, alias="c")
     text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT, alias="t")
     version: str | None = Field(default=settings.VERSION_DEFAULT, alias="v")
     length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0, alias="l")
     width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0, alias="w")
-    verse_numbers: bool | None = Field(default=settings.VERSE_NUMBERS, alias="n")
-    return_json: bool | None = Field(default=settings.JSON_DEFAULT, alias="j")
+    verse_numbers: bool | None = Field(
+        default=settings.VERSE_NUMBERS,
+        validation_alias=AliasChoices("n", "verse_numbers", "numbers"),
+    )
+    # return_json: bool | None = Field(
+    #     default=settings.JSON_DEFAULT,
+    #     validation_alias=AliasChoices("j", "return_json", "json"),
+    # )
+    return_json: bool | None = Field(
+        default=False,
+        validation_alias=AliasChoices("j", "return_json", "json"),
+    )
     options: str | None = None
+    request: Request = None
+
+    # pylint: disable=no-self-argument
+    @field_validator("request")
+    def request_validator(cls, user_options, values):
+        if user_options is None or len(user_options.query_params) == 0:
+            return values
+        default_options = OptionsNames()
+        params = dict(user_options.query_params)
+        for param in params:
+            full_name = default_options.to_long(param)
+            if full_name in values.data:
+                if full_name in [
+                    "color_text",
+                    "text_only",
+                    "verse_numbers",
+                    "return_json",
+                ]:
+                    values.data[full_name] = is_bool(params[param])
+        return values
 
     # pylint: disable=no-self-argument
     @field_validator("options")

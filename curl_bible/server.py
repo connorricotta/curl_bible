@@ -15,6 +15,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from curl_bible.config import (
+    JSON,
     Options,
     __version__,
     create_book,
@@ -71,6 +72,11 @@ async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
 
+@app.get("/json")
+async def json(options: JSON = Depends()):
+    return {"hello": "world"}
+
+
 @app.get("/")
 @limiter.limit(settings.RATE_LIMIT)
 async def as_arguments_book_chapter_verse(
@@ -106,7 +112,8 @@ async def as_arguments_book_chapter_verse(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
-        kwargs.pop("request")
+        if "request" in kwargs:
+            kwargs.pop("request")
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -149,7 +156,8 @@ async def query_many(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
-        kwargs.pop("request")
+        if "request" in kwargs:
+            kwargs.pop("request")
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -179,7 +187,8 @@ async def entire_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
-        kwargs.pop("request")
+        if "request" in kwargs:
+            kwargs.pop("request")
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -235,7 +244,8 @@ async def flatten_out(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
-        kwargs.pop("request")
+        if "request" in kwargs:
+            kwargs.pop("request")
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -275,7 +285,8 @@ async def mutli_verse_same_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
-        kwargs.pop("request")
+        if "request" in kwargs:
+            kwargs.pop("request")
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
