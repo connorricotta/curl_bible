@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     VERSION_DEFAULT: str = "ASV"
     LENGTH_DEFAULT: int = 60
     WIDTH_DEFAULT: int = 80
+    MAX_SIZE: int = 300
     JSON_DEFAULT: bool = False
     OPTIONS_DEFAULT: str = ""
     VERSE_NUMBERS: bool = True
@@ -191,44 +192,28 @@ class OptionsNames:
             return option
 
 
-class JSON(BaseModel):
-    # def __init__(self):
-    #     return super().__init__()
-
-    name: str = Field(alias="name1")
-    name2: str = Field(validation_alias=AliasChoices("name2", "name_2", "name_two"))
-    return_json: bool | None = Field(
-        default=False,
-        validation_alias=AliasChoices("j", "return_json", "json"),
-    )
-
-    # pylint: disable=no-self-argument
-    @field_validator("name")
-    def name_must_contain_space(cls, user_options, values):
-        pass
-
-
 class Options(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     color_text: bool | None = Field(default=True, alias="c")
     text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT, alias="t")
     version: str | None = Field(default=settings.VERSION_DEFAULT, alias="v")
-    length: int | None = Field(default=settings.LENGTH_DEFAULT, gt=0, alias="l")
-    width: int | None = Field(default=settings.WIDTH_DEFAULT, gt=0, alias="w")
+    length: int | None = Field(
+        default=settings.LENGTH_DEFAULT, gt=0, lt=settings.MAX_SIZE, alias="l"
+    )
+    width: int | None = Field(
+        default=settings.WIDTH_DEFAULT, gt=0, lt=settings.MAX_SIZE, alias="w"
+    )
     verse_numbers: bool | None = Field(
         default=settings.VERSE_NUMBERS,
         validation_alias=AliasChoices("n", "verse_numbers", "numbers"),
     )
-    # return_json: bool | None = Field(
-    #     default=settings.JSON_DEFAULT,
-    #     validation_alias=AliasChoices("j", "return_json", "json"),
-    # )
     return_json: bool | None = Field(
         default=False,
         validation_alias=AliasChoices("j", "return_json", "json"),
     )
     options: str | None = None
     request: Request = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_return=True)
 
     # pylint: disable=no-self-argument
     @field_validator("request")
@@ -238,6 +223,7 @@ class Options(BaseModel):
         default_options = OptionsNames()
         params = dict(user_options.query_params)
         for param in params:
+            request_value = params[param]
             full_name = default_options.to_long(param)
             if full_name in values.data:
                 if full_name in [
@@ -246,7 +232,17 @@ class Options(BaseModel):
                     "verse_numbers",
                     "return_json",
                 ]:
-                    values.data[full_name] = is_bool(params[param])
+                    values.data[full_name] = is_bool(request_value)
+                if (
+                    full_name in ["length", "width"]
+                    and (isinstance(request_value, int) or params[param].isnumeric())
+                    and (0 < int(request_value) <= settings.MAX_SIZE)
+                ):
+                    values.data[full_name] = int(request_value)
+
+                if full_name == "version" and len(request_value) == 3:
+                    values.data[full_name] = request_value.upper()
+
         return values
 
     # pylint: disable=no-self-argument

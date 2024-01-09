@@ -15,7 +15,6 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from curl_bible.config import (
-    JSON,
     Options,
     __version__,
     create_book,
@@ -72,11 +71,6 @@ async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
 
-@app.get("/json")
-async def json(options: JSON = Depends()):
-    return {"hello": "world"}
-
-
 @app.get("/")
 @limiter.limit(settings.RATE_LIMIT)
 async def as_arguments_book_chapter_verse(
@@ -113,7 +107,9 @@ async def as_arguments_book_chapter_verse(
     if options.return_json:
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
+            # The FastAPI "Request" can't be converted to JSON.
             kwargs.pop("request")
+            kwargs.get("options").request = None
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -158,6 +154,7 @@ async def query_many(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+            kwargs.get("options").request = None
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -189,6 +186,7 @@ async def entire_chapter(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+            kwargs.get("options").request = None
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -246,6 +244,7 @@ async def flatten_out(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+            kwargs.get("options").request = None
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -287,6 +286,7 @@ async def mutli_verse_same_chapter(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+            kwargs.get("options").request = None
         return kwargs
     if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
@@ -370,20 +370,20 @@ The following options are supported:
     • 'w' or 'width' - how many characters will be displayed in each line of the book.
         default value: 80
 
-    • 'c' or 'color_text' - display the returned book with terminal colors
+    • 'c' or 'color' or 'color_text' - display the returned book with terminal colors
         default value: True
 
     • 't' or 'text_only' - only returned the unformatted text.
         deafult value: False
 
-    • 'n' or 'verse_number' - Display the associated verse numbers in superscript.
+    • 'n' or 'numbers' or 'verse_numbers' - Display the associated verse numbers in superscript.
         Default value: False
 
     • 'v' or 'version' - choose which version of the bible to use.
         Default value: ASV (American Standard Version)
         Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
 
-    • 'j' or 'return_json' - Return the JSON version of the response.
+    • 'j' or 'json' or 'return_json' - Return the JSON version of the response.
 
     These options can be combined on a single parameter for convenience:
         curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE,j=True
