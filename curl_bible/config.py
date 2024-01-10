@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings
 
 import curl_bible.db_models as schemas
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 
 class Settings(BaseSettings):
