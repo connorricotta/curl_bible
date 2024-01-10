@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     LENGTH_DEFAULT: int = 60
     WIDTH_DEFAULT: int = 80
     MAX_SIZE: int = 300
+    MIN_SIZE: int = 5
     JSON_DEFAULT: bool = False
     OPTIONS_DEFAULT: str = ""
     VERSE_NUMBERS: bool = True
@@ -197,10 +198,16 @@ class Options(BaseModel):
     text_only: bool | None = Field(default=settings.TEXT_ONLY_DEFAULT, alias="t")
     version: str | None = Field(default=settings.VERSION_DEFAULT, alias="v")
     length: int | None = Field(
-        default=settings.LENGTH_DEFAULT, gt=0, lt=settings.MAX_SIZE, alias="l"
+        default=settings.LENGTH_DEFAULT,
+        gt=settings.MIN_SIZE,
+        lt=settings.MAX_SIZE,
+        alias="l",
     )
     width: int | None = Field(
-        default=settings.WIDTH_DEFAULT, gt=0, lt=settings.MAX_SIZE, alias="w"
+        default=settings.WIDTH_DEFAULT,
+        gt=settings.MIN_SIZE,
+        lt=settings.MAX_SIZE,
+        alias="w",
     )
     verse_numbers: bool | None = Field(
         default=settings.VERSE_NUMBERS,
@@ -236,7 +243,7 @@ class Options(BaseModel):
                 if (
                     full_name in ["length", "width"]
                     and (isinstance(request_value, int) or params[param].isnumeric())
-                    and (0 < int(request_value) <= settings.MAX_SIZE)
+                    and (settings.MIN_SIZE < int(request_value) <= settings.MAX_SIZE)
                 ):
                     values.data[full_name] = int(request_value)
 

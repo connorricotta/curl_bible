@@ -109,6 +109,7 @@ async def as_arguments_book_chapter_verse(
         if "request" in kwargs:
             # The FastAPI "Request" can't be converted to JSON.
             kwargs.pop("request")
+        if "options" in kwargs:
             kwargs.get("options").request = None
         return kwargs
     if options.text_only:
@@ -154,6 +155,7 @@ async def query_many(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+        if "options" in kwargs:
             kwargs.get("options").request = None
         return kwargs
     if options.text_only:
@@ -186,6 +188,7 @@ async def entire_chapter(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+        if "options" in kwargs:
             kwargs.get("options").request = None
         return kwargs
     if options.text_only:
@@ -244,6 +247,7 @@ async def flatten_out(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+        if "options" in kwargs:
             kwargs.get("options").request = None
         return kwargs
     if options.text_only:
@@ -286,6 +290,7 @@ async def mutli_verse_same_chapter(
         kwargs["request_verse"] = request_verse
         if "request" in kwargs:
             kwargs.pop("request")
+        if "options" in kwargs:
             kwargs.get("options").request = None
         return kwargs
     if options.text_only:
@@ -361,7 +366,6 @@ Supports the following query types (GET):
     • curl bible.ricotta.dev/John:3:15-19
     • curl bible.ricotta.dev/John/3/15-19
     • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
-    • curl bible.ricotta.dev/John:3:15:John:4:15
 
 The following options are supported:
     • 'l' or 'length' - the number of lines present in the book
