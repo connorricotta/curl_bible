@@ -17,7 +17,7 @@ class DatabaseSettings(BaseSettings):
     MYSQL_DB_PORT: int
     MYSQL_ROOT_USER: str
     MYSQL_ROOT_PASSWORD: str
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 db_settings = DatabaseSettings()

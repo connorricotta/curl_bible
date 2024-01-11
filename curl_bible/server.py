@@ -1,3 +1,5 @@
+import logging
+from contextlib import asynccontextmanager
 from random import choice, randint
 from typing import Union
 
@@ -26,6 +28,7 @@ from curl_bible.config import (
 from curl_bible.database import engine, get_database_session
 from curl_bible.db_models import Base
 from curl_bible.helper_methods import router as helper_methods_router
+from curl_bible.influxdb import InfluxDBHTTPHandler
 
 limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
@@ -36,18 +39,35 @@ app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Fix issue with Pytest imports
 try:
     app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
 except RuntimeError:
     app.mount("/static", StaticFiles(directory="../curl_bible/static"), name="static")
 
+logger = logging.getLogger()
+influx_http = InfluxDBHTTPHandler()
+logger.addHandler(influx_http)
 
-# Initalize DB
-Base.metadata.create_all(bind=engine)
+
+@app.exception_handler(Exception)
+def default_exceptions(request: Request, exc: Exception):
+    logger.exception(exc)
+
+
+app.add_exception_handler(Exception, default_exceptions)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initalize DB
+    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
+    # logger.error("Test")
+    assert 1 == 0
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
         title=app.title + " - Swagger UI",
@@ -62,7 +82,7 @@ async def redoc_html():
     return get_redoc_html(
         openapi_url=app.openapi_url,
         title=app.title + " - ReDoc",
-        redoc_js_url="/static/redoc.standalone.js",
+        redoc_js_url="/static/redocs.standalone.js",
     )
 
 
