@@ -20,6 +20,7 @@ pydantic = "*"
 bump2version = "*"
 slowapi = "*"
 pydantic-settings = "*"
+influxdb-client = "*"
 
 [dev-packages]
 flake8 = "*"
