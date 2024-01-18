@@ -1,20 +1,20 @@
 import logging
 import time
 from traceback import format_exception
+from typing import Optional
 
 import influxdb_client
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
-from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class InfluxDBSettings(BaseSettings):
-    INFLUXDB_TOKEN: str
-    INFLUXDB_ORG: str
-    INFLUXDB_URL: str
-    INFLUXDB_BUCKET: str
-    model_config = ConfigDict(extra="ignore")
+    INFLUXDB_TOKEN: Optional[str] = None
+    INFLUXDB_ORG: Optional[str] = None
+    INFLUXDB_URL: Optional[str] = None
+    INFLUXDB_BUCKET: Optional[str] = None
+
     # SettingsConfigDict(env_file=".env")
 
 
