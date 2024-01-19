@@ -13,6 +13,10 @@ docker/.env_old
 *.env
 .env_*
 *.swp
+*old_workflows*
+old_workflows/
+curl_bible/config_old.py
+curl_bible/outdated.py
 
 
 # The following was taken from:
