@@ -1,11 +1,11 @@
 repos:
   - repo: local
     hooks:
-      - id: pytest-check
-        name: pytest-check
+      - id: pytest
+        name: pytest
         stages: [commit]
         types: [python]
-        entry: pipenv run pytest curl_bible/tests
+        entry: pipenv run python -m pytest curl_bible/tests/
         language: system
         # pass_filenames: false
         # always_run: true

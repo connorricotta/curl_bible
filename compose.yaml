@@ -1,32 +1,31 @@
 version: '3'
 
 services:
-  mariadb:
-    image: docker.io/library/mariadb:10.5
+  bible_db:
+    image: docker.io/connorricotta/bible_db:latest
     container_name: bible_db
-    hostname: "bible_db"
-    volumes:
-      - ./sql/bible-mysql.sql:/docker-entrypoint-initdb.d
+    hostname: bible_db
     environment:
       MYSQL_ROOT_USER: "${MYSQL_ROOT_USER}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
-      MYSQL_USER: "${MYSQL_USERNAME}"
+      MYSQL_USER: "${MYSQL_USER}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
     restart: always
     ports:
       - 33060:3306
-  
+    env_file:
+      - .env
+
   curl_bible:
-    image: quay.io/connorricotta/curl_bible:latest
-    hostname: "curl_bible"
+    image: docker.io/connorricotta/curl_bible:latest
+    hostname: curl_bible
     container_name: curl_bible
     ports:
       - 10000:10000
-        #entrypoint: sleep 10000
     volumes:
-      # Allow logs to be viewed without entering the container.
       - ./log:/code/curl_bible/log
       - ./.env:/code/curl_bible/.env
-      - ./curl_bible:/code/curl_bible
     restart: always
+    env_file:
+      - .env

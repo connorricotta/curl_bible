@@ -1,0 +1,143 @@
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu
+    container:
+      image: docker.io/connorricotta/ubuntu_node:latest
+
+    services:
+      bible_db:
+        image: docker.io/connorricotta/bible_db:latest
+        env:
+          MYSQL_ROOT_USER: "${{ secrets.CI_MYSQL_ROOT_USER }}"
+          MYSQL_ROOT_PASSWORD: "${{ secrets.CI_MYSQL_ROOT_PASSWORD }}"
+          MYSQL_USER: "${{ secrets.CI_MYSQL_USER }}"
+          MYSQL_PASSWORD: "${{ secrets.CI_MYSQL_PASSWORD }}"
+          MYSQL_DATABASE: "${{ secrets.CI_MYSQL_DATABASE }}"
+    strategy:
+      python-version: ["3.10"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Create hashfiles
+        id: hash
+        run: |
+          hash=$(md5sum Pipfile.lock | awk '{ print $1}')
+          echo "HASH=$hash">> "$GITHUB_OUTPUT"
+
+      - name: Make Virtual Environment Directory
+        run: mkdir .venv
+
+      - name: Restore from cache (if it exists)
+        uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: .venv
+          key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
+
+      - name: Install Python if cache failed.
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pipenv install --dev
+
+      - name: Save to cache
+        uses: actions/cache/save@v3
+        id: cache
+        with:
+          path: .venv
+          key: ${{ runner.os }}-pipenv-${{ steps.hash.outputs.HASH }}
+
+      - name: Setup Env file
+        run: |
+          echo "${{ secrets.CI_ENV_FILE }}" > .env
+          cp .env curl_bible/.env
+
+      #pipenv run python -m pytest
+      - name: Run Tests
+        run: |
+          pipenv run pytest
+          pipenv run flake8 .
+          pipenv run bandit .
+          pipenv run isort .
+          pipenv run black .
+
+  publish:
+    # Only run if the push has a new version and the previous tests pass.
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu
+    container:
+      image: docker.io/connorricotta/ubuntu_node:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Pull tag from git
+        uses: https://github.com/WyriHaximus/github-action-get-previous-tag@v1
+        id: tag
+
+      - name: "Login to docker.io"
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ secrets.IMAGE_REGISTRY }} --password-stdin --username ${{ secrets.DOCKER_USERNAME }}
+
+      - name: Set up QEMU
+        uses: https://github.com/docker/setup-qemu-action@v2
+
+      - name: Install buildx
+        id: buildx
+        uses: https://github.com/crazy-max/ghaction-docker-buildx@v1
+        with:
+          version: latest
+
+      - name: Build docker images with buildx
+        run: |
+          docker buildx build \
+            --file Containerfile \
+            --tag ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest \
+            --tag ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:${{ steps.tag.outputs.tag }} \
+            --cache-from type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache,mode=max \
+            --cache-to type=registry,ref=${{ secrets.IMAGE_REGISTRY }}/connorricotta/curl_bible:buildcache  \
+            --platform linux/amd64,linux/arm/v7,linux/arm64 \
+            --push \
+            .
+
+  deploy:
+    # Only run if the push has a new version and the previous tests pass.
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu
+    container:
+      image: docker.io/connorricotta/ubuntu_node:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Make SSH key
+        run: |
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ssh_key
+          chmod 600 ssh_key
+
+      # TODO: copy new compose file over
+      - name: SSH to test
+        run: |
+          echo "${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}" > deploy_path 
+          echo "${{ secrets.PROD_ENV_FILE }}" > .env
+
+          scp -i ssh_key -o "StrictHostKeyChecking no" \
+            compose.yaml .env ${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}
+
+          ssh -o "StrictHostKeyChecking no" -t -i ssh_key ${{ secrets.DEPLOY_HOST }} '
+            cd ${{ secrets.DEPLOY_PATH }}/${{ gitea.repository }}
+            podman pull ${{ secrets.IMAGE_REGISTRY }}/${{ gitea.repository }}:latest
+            podman-compose down && podman-compose up -d
+          '
+
+      - run: echo "This job's status is ${{ job.status }}."

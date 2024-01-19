@@ -1,3 +1,4 @@
+import logging
 from random import choice, randint
 from typing import Union
 
@@ -14,9 +15,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from curl_bible import __version__, schema
 from curl_bible.config import (
     Options,
+    __version__,
     create_book,
     create_request_verse,
     create_settings,
@@ -24,7 +25,9 @@ from curl_bible.config import (
     multi_query,
 )
 from curl_bible.database import engine, get_database_session
+from curl_bible.db_models import Base
 from curl_bible.helper_methods import router as helper_methods_router
+from curl_bible.influxdb import InfluxDBHTTPHandler
 
 limiter = Limiter(key_func=get_remote_address)
 settings = create_settings()
@@ -35,8 +38,47 @@ app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Initalize DB
-schema.Base.metadata.create_all(bind=engine)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Fix issue with Pytest imports
+try:
+    app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
+except RuntimeError:
+    app.mount("/static", StaticFiles(directory="../curl_bible/static"), name="static")
+
+
+@app.exception_handler(Exception)
+def default_exceptions(request: Request, exc: Exception):
+    logger.exception(exc, extra={"status_code": status.HTTP_500_INTERNAL_SERVER_ERROR})
+
+
+app.add_exception_handler(Exception, default_exceptions)
+
+
+@app.middleware("http")
+async def log_response(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code == status.HTTP_200_OK:
+        logger.info([response, request])
+    elif response.status_code == status.HTTP_400_BAD_REQUEST:
+        logger.warning([response, request])
+    elif response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+        logger.error([response, request])
+    return response
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Initalize DB
+    Base.metadata.create_all(bind=engine)
+
+    # Create InfluxDB (if it exists)
+    try:
+        influx_http = InfluxDBHTTPHandler()
+        logger.addHandler(influx_http)
+    except Exception as e:
+        logger.error(f"Could not load InfluxDB with reason {repr(e)}")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -55,7 +97,7 @@ async def redoc_html():
     return get_redoc_html(
         openapi_url=app.openapi_url,
         title=app.title + " - ReDoc",
-        redoc_js_url="/static/redoc.standalone.js",
+        redoc_js_url="/static/redocs.standalone.js",
     )
 
 
@@ -70,7 +112,7 @@ async def as_arguments_book_chapter_verse(
     request: Request,
     book: Union[str | None] = Query(default=None),
     chapter: Union[int, None] = Query(default=None, ge=0, le=50),
-    verse: Union[str, None] = Query(default=None, regex=settings.VERSE_REGEX),
+    verse: Union[str, None] = Query(default=None, pattern=settings.VERSE_REGEX),
     db_session: Session = Depends(get_database_session),
     options: Options = Depends(),
 ):
@@ -99,16 +141,20 @@ async def as_arguments_book_chapter_verse(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        if "request" in kwargs:
+            # The FastAPI "Request" can't be converted to JSON.
+            kwargs.pop("request")
+        if "options" in kwargs:
+            kwargs.get("options").request = None
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
-        return PlainTextResponse(content=result)
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{query}")
@@ -142,16 +188,19 @@ async def query_many(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        if "request" in kwargs:
+            kwargs.pop("request")
+        if "options" in kwargs:
+            kwargs.get("options").request = None
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
-        return PlainTextResponse(content=result)
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
+    return PlainTextResponse(content=result)
 
 
 @app.get("/{book}/{chapter}")
@@ -172,15 +221,18 @@ async def entire_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        if "request" in kwargs:
+            kwargs.pop("request")
+        if "options" in kwargs:
+            kwargs.get("options").request = None
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
@@ -228,15 +280,18 @@ async def flatten_out(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        if "request" in kwargs:
+            kwargs.pop("request")
+        if "options" in kwargs:
+            kwargs.get("options").request = None
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
@@ -268,15 +323,18 @@ async def mutli_verse_same_chapter(
 
     if options.return_json:
         kwargs["request_verse"] = request_verse
+        if "request" in kwargs:
+            kwargs.pop("request")
+        if "options" in kwargs:
+            kwargs.get("options").request = None
         return kwargs
-    elif options.text_only:
+    if options.text_only:
         return PlainTextResponse(content=kwargs.get("text"))
-    else:
-        result = create_book(
-            bible_verse=kwargs.get("text"),
-            user_options=options,
-            request_verse=request_verse,
-        )
+    result = create_book(
+        bible_verse=kwargs.get("text"),
+        user_options=options,
+        request_verse=request_verse,
+    )
     return PlainTextResponse(content=result)
 
 
@@ -343,7 +401,6 @@ Supports the following query types (GET):
     • curl bible.ricotta.dev/John:3:15-19
     • curl bible.ricotta.dev/John/3/15-19
     • curl "bible.ricotta.dev?book=John&chapter=3&verse=15-19"
-    • curl bible.ricotta.dev/John:3:15:John:4:15
 
 The following options are supported:
     • 'l' or 'length' - the number of lines present in the book
@@ -352,20 +409,20 @@ The following options are supported:
     • 'w' or 'width' - how many characters will be displayed in each line of the book.
         default value: 80
 
-    • 'c' or 'color_text' - display the returned book with terminal colors
+    • 'c' or 'color' or 'color_text' - display the returned book with terminal colors
         default value: True
 
     • 't' or 'text_only' - only returned the unformatted text.
         deafult value: False
 
-    • 'n' or 'verse_number' - Display the associated verse numbers in superscript.
+    • 'n' or 'numbers' or 'verse_numbers' - Display the associated verse numbers in superscript.
         Default value: False
 
     • 'v' or 'version' - choose which version of the bible to use.
         Default value: ASV (American Standard Version)
         Tip: curl bible.ricotta.dev/versions to see all supported bible versions.
 
-    • 'j' or 'return_json' - Return the JSON version of the response.
+    • 'j' or 'json' or 'return_json' - Return the JSON version of the response.
 
     These options can be combined on a single parameter for convenience:
         curl bible.ricotta.dev/John:3:15?options=l=50,w=85,c=False,v=BBE,j=True

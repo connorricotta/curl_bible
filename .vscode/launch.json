@@ -5,6 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
       "name": "Pytest",
       "type": "python",
       "request": "launch",
@@ -18,7 +26,7 @@
       "module": "uvicorn",
       "args": ["curl_bible.server:app", "--reload"],
       "jinja": true,
-      "justMyCode": true
+      "justMyCode": false
     },
     {
       "name": "DB Test",

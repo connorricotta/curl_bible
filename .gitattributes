@@ -1,0 +1,2 @@
+*.sql filter=lfs diff=lfs merge=lfs -text lockable
+bible_db/bible-sql.sql filter=lfs diff=lfs merge=lfs -text

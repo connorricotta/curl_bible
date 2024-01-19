@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 
-from curl_bible.server import app
+from curl_bible import server
 
+app = server.app
 client = TestClient(app)
 
 
@@ -59,6 +60,13 @@ def test_query_multi_verse():
     with TestClient(app) as test_client:
         response = test_client.get("?book=John&chapter=3&verse=10-15")
         compare(response, "query_multi_verse.txt")
+
+
+def test_api_docs():
+    with TestClient(app) as test_client:
+        for request in ["/docs", "/openapi.json", "/redoc"]:
+            response = test_client.get(request)
+            assert response.status_code == 200
 
 
 def compare(response, text: str) -> None:

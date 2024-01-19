@@ -1,5 +1,6 @@
 # Project Specific files
 db.conf
+build*.sh
 bin
 lib
 *.log
@@ -11,6 +12,7 @@ README_old.md
 docker/.env_old
 *.env
 .env_*
+*.swp
 *old_workflows*
 old_workflows/
 curl_bible/config_old.py
@@ -179,3 +181,13 @@ python/log/bible.log.old
 python/requirements.txt.old
 python/pipfile.old
 .env
+.compose.yaml.swp
+buildx.sh
+bible_db/bible-mysql.sql
+bible_db/old.sql
+curl_bible/models.py
+curl_bible/schemas.py
+bible_db/build.sh
+buildx.sh
+~/.config/cni/net.d/cni.lock
+~/.config/cni/net.d/curl_bible_default.conflist
