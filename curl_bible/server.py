@@ -46,8 +46,11 @@ except RuntimeError:
     app.mount("/static", StaticFiles(directory="../curl_bible/static"), name="static")
 
 logger = logging.getLogger()
-influx_http = InfluxDBHTTPHandler()
-logger.addHandler(influx_http)
+try:
+    influx_http = InfluxDBHTTPHandler()
+    logger.addHandler(influx_http)
+except Exception as e:
+    logger.error(f"Could not load InfluxDB with reason {repr(e)}")
 
 
 @app.exception_handler(Exception)
