@@ -1,5 +1,4 @@
 import logging
-from contextlib import asynccontextmanager
 from random import choice, randint
 from typing import Union
 
@@ -39,38 +38,51 @@ app.include_router(helper_methods_router)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 # Fix issue with Pytest imports
 try:
     app.mount("/static", StaticFiles(directory="curl_bible/static"), name="static")
 except RuntimeError:
     app.mount("/static", StaticFiles(directory="../curl_bible/static"), name="static")
 
-logger = logging.getLogger()
-try:
-    influx_http = InfluxDBHTTPHandler()
-    logger.addHandler(influx_http)
-except Exception as e:
-    logger.error(f"Could not load InfluxDB with reason {repr(e)}")
-
 
 @app.exception_handler(Exception)
 def default_exceptions(request: Request, exc: Exception):
-    logger.exception(exc)
+    logger.exception(exc, extra={"status_code": status.HTTP_500_INTERNAL_SERVER_ERROR})
 
 
 app.add_exception_handler(Exception, default_exceptions)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.middleware("http")
+async def log_response(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code == status.HTTP_200_OK:
+        logger.info([response, request])
+    elif response.status_code == status.HTTP_400_BAD_REQUEST:
+        logger.warning([response, request])
+    elif response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+        logger.error([response, request])
+    return response
+
+
+@app.on_event("startup")
+async def startup_event():
     # Initalize DB
     Base.metadata.create_all(bind=engine)
+
+    # Create InfluxDB (if it exists)
+    try:
+        influx_http = InfluxDBHTTPHandler()
+        logger.addHandler(influx_http)
+    except Exception as e:
+        logger.error(f"Could not load InfluxDB with reason {repr(e)}")
 
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
-    # logger.error("Test")
-    assert 1 == 0
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
         title=app.title + " - Swagger UI",

@@ -7,6 +7,7 @@ import influxdb_client
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from starlette.middleware.base import _CachedRequest, _StreamingResponse
 
 
 class InfluxDBSettings(BaseSettings):
@@ -34,13 +35,30 @@ class InfluxDBWriter:
             Point("log")
             .tag("filename", value.filename)
             .tag("function_name", value.funcName)
-            .tag("message", value.msg)
             .tag("line_number", value.lineno)
-            .field("level", value.levelno)
+            .tag("level", value.levelno)
+            .tag("name", value.name)
+            .tag("pathname", value.pathname)
+            .tag("module", value.module)
         )
         if isinstance(value.msg, Exception):
-            for count, traceback_level in enumerate(format_exception(value.msg)):
-                data.tag(f"traceback_level_{count:02}", traceback_level)
+            data.tag("traceback", " | ".join(format_exception(value.msg)))
+            if hasattr(value, "status_code"):
+                data.field("status_code", value.status_code)
+        elif (
+            hasattr(value.msg, "len")
+            and len(value.msg) == 2
+            and isinstance(value.msg[0], _StreamingResponse)
+            and isinstance(value.msg[-1], _CachedRequest)
+        ):
+            request = value.msg[1]
+            response = value.msg[0]
+
+            path = f"{request.url.path}{'?'+request.url.query if request.url.query !='' else ''}"
+            message = f"Recieved {response.status_code} for {path}"
+
+            data.field("status_code", response.status_code)
+            data.tag("message", message)
 
         self.writer_cursor.write(
             bucket=self.bucket, org=self.settings.INFLUXDB_ORG, record=data
@@ -58,11 +76,6 @@ class InfluxDBHTTPHandler(logging.Handler):
 
 if __name__ == "__main__":
     test = InfluxDBWriter()
-    # test.log("Thing")
-
-    # token = os.environ.get("INFLUXDB_TOKEN")
-    # org = "CheeseINC"
-    # url = "http://192.168.0.2:8086"
 
     influxdb_settings = InfluxDBSettings()
     # Writing to InfluxDB

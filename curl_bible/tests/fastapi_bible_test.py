@@ -62,6 +62,13 @@ def test_query_multi_verse():
         compare(response, "query_multi_verse.txt")
 
 
+def test_api_docs():
+    with TestClient(app) as test_client:
+        for request in ["/docs", "/openapi.json", "/redoc"]:
+            response = test_client.get(request)
+            assert response.status_code == 200
+
+
 def compare(response, text: str) -> None:
     assert response.status_code == 200
     with open(f"curl_bible/tests/responses/{text}", "r", encoding="utf-8") as f:
