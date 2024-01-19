@@ -10,10 +10,10 @@ from pydantic_settings import BaseSettings
 
 
 class InfluxDBSettings(BaseSettings):
-    INFLUXDB_TOKEN: Optional[str] = None
-    INFLUXDB_ORG: Optional[str] = None
-    INFLUXDB_URL: Optional[str] = None
-    INFLUXDB_BUCKET: Optional[str] = None
+    INFLUXDB_TOKEN: Optional[str] = ""
+    INFLUXDB_ORG: Optional[str] = ""
+    INFLUXDB_URL: Optional[str] = ""
+    INFLUXDB_BUCKET: Optional[str] = ""
 
     # SettingsConfigDict(env_file=".env")
 
