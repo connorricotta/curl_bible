@@ -97,7 +97,7 @@ async def as_arguments_book_chapter_verse(
     request: Request,
     book: Union[str | None] = Query(default=None),
     chapter: Union[int, None] = Query(default=None, ge=0, le=50),
-    verse: Union[str, None] = Query(default=None, regex=settings.VERSE_REGEX),
+    verse: Union[str, None] = Query(default=None, pattern=settings.VERSE_REGEX),
     db_session: Session = Depends(get_database_session),
     options: Options = Depends(),
 ):
