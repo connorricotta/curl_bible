@@ -46,7 +46,7 @@ class InfluxDBWriter:
             if hasattr(value, "status_code"):
                 data.field("status_code", value.status_code)
         elif (
-            hasattr(value.msg, "len")
+            isinstance(value.msg, list)
             and len(value.msg) == 2
             and isinstance(value.msg[0], _StreamingResponse)
             and isinstance(value.msg[-1], _CachedRequest)
