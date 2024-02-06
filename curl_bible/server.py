@@ -251,6 +251,7 @@ async def flatten_out(
     if "-" in verse:
         verse_start, verse_end = verse.split("-")
         request_verse = create_request_verse(
+            db=db,
             book=book,
             chapter=chapter,
             verse_start=verse_start,
@@ -266,7 +267,9 @@ async def flatten_out(
             request=request,
         )
     else:
-        request_verse = create_request_verse(book=book, chapter=chapter, verse=verse)
+        request_verse = create_request_verse(
+            db=db, book=book, chapter=chapter, verse=verse
+        )
         arguments = flatten_args(
             db,
             book=book,
