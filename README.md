@@ -7,16 +7,13 @@ Curl Bible
   </a>
   <a href="https://pypi.org/project/autopep8/"> 
     <img src="https://img.shields.io/badge/code--style-autopep8-blue" alt="Code Style Autopep8">
-  </a href="https://hub.docker.com/repository/docker/connorricotta/curl_bible">
+  </a>
+  <a href="https://hub.docker.com/repository/docker/connorricotta/curl_bible"> 
     <img src=" https://img.shields.io/docker/pulls/connorricotta/curl_bible " alt="Docker Pulls">
-  </a> 
-  <!-- </a href="https://github.com/connorricotta/curl_bible">
-    <img src="https://img.shields.io/github/pipenv/locked/python-version/connorricotta/curl_bible" alt="Python Version">
-  </a> -->
-
+  </a>  
 </p>
 
-![Screenshot 1](https://cdn.discordapp.com/attachments/775917117290709042/981019274560823346/unknown.png "Our logo")
+![Screenshot 1](https://cdn.discordapp.com/attachments/775917117290709042/981019274560823346/unknown.png "Logo")
 
 Read passages from the bible using curl or HTTPie! All output to the terminal colored using [ANSI Escape Codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
 

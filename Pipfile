@@ -9,7 +9,7 @@ verify_ssl = true
 name = "pypipython"
 
 [packages]
-fastapi = "*"
+fastapi = ">=0.109.1"
 gunicorn = "*"
 python-dotenv = "*"
 uvicorn = {extras = ["standard"], version = "*"}
