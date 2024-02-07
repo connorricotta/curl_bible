@@ -14,8 +14,6 @@ jobs:
           MYSQL_USER: "${{ secrets.CI_MYSQL_USER }}"
           MYSQL_PASSWORD: "${{ secrets.CI_MYSQL_PASSWORD }}"
           MYSQL_DATABASE: "${{ secrets.CI_MYSQL_DATABASE }}"
-    strategy:
-      python-version: ["3.10"]
 
     steps:
       - name: Checkout code

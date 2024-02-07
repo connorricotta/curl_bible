@@ -132,7 +132,19 @@ def create_settings():
     return Settings()
 
 
-def create_request_verse(**kwargs) -> str:
+def create_request_verse(db, **kwargs) -> str:
+    book_list = schemas.KeyAbbreviationsEnglish
+    book_id = (
+        db.query(book_list).filter(book_list.name == kwargs.get("book")).first().book
+    )
+    full_book_name = (
+        db.query(book_list)
+        .filter(book_list.book == book_id)
+        .filter(book_list.primary == "1")
+        .all()[-1]
+        .name
+    )
+    kwargs["book"] = full_book_name
     if set(kwargs.keys()) == {
         "book",
         "chapter_start",
@@ -670,6 +682,12 @@ def flatten_args(db, **kwargs):
             .filter(schemas.KeyAbbreviationsEnglish.name == kwargs.get("book"))
             .filter(schemas.KeyAbbreviationsEnglish.primary == "1")
         ).first()
+        if data is None:
+            data = (
+                db.query(schemas.KeyAbbreviationsEnglish).filter(
+                    schemas.KeyAbbreviationsEnglish.name == kwargs.get("book")
+                )
+            ).first()
         if data is not None:
             kwargs["book"] = str(data.book)
         else:

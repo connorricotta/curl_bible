@@ -36,7 +36,9 @@ if not db_settings.DEBUG:
     sleep(30)
 for i in range(db_settings.DB_CONNECT_ATTEMPTS):
     try:
-        engine = create_engine(SQLALCHEMY_DATABASE_URL)
+        engine = create_engine(
+            SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle=360
+        )
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         Base = declarative_base()
         if isinstance(Base, DeclarativeMeta):

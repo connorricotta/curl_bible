@@ -191,3 +191,4 @@ bible_db/build.sh
 buildx.sh
 ~/.config/cni/net.d/cni.lock
 ~/.config/cni/net.d/curl_bible_default.conflist
+install.sh

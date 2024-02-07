@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   bible_db:
@@ -12,8 +12,6 @@ services:
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
     restart: always
-    ports:
-      - 33060:3306
     env_file:
       - .env
 

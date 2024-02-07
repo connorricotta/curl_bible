@@ -133,7 +133,7 @@ async def as_arguments_book_chapter_verse(
         else:
             kwargs["verse"] = verse
 
-    request_verse = create_request_verse(**kwargs)
+    request_verse = create_request_verse(db=db_session, **kwargs)
     kwargs["request"] = request
     arguments = flatten_args(db=db_session, options=options, **kwargs)
 
@@ -180,7 +180,7 @@ async def query_many(
         else:
             kwargs["verse"] = split_query[2]
 
-    request_verse = create_request_verse(**kwargs)
+    request_verse = create_request_verse(db=db, **kwargs)
     kwargs["request"] = request
     arguments = flatten_args(db=db, options=options, **kwargs)
 
@@ -216,7 +216,7 @@ async def entire_chapter(
     arguments = flatten_args(
         db=db_session, book=book, chapter=chapter, options=options, request=request
     )
-    request_verse = create_request_verse(book=book, chapter=chapter)
+    request_verse = create_request_verse(db=db_session, book=book, chapter=chapter)
     kwargs.update(multi_query(db_session, **arguments))
 
     if options.return_json:
@@ -251,6 +251,7 @@ async def flatten_out(
     if "-" in verse:
         verse_start, verse_end = verse.split("-")
         request_verse = create_request_verse(
+            db=db,
             book=book,
             chapter=chapter,
             verse_start=verse_start,
@@ -266,7 +267,9 @@ async def flatten_out(
             request=request,
         )
     else:
-        request_verse = create_request_verse(book=book, chapter=chapter, verse=verse)
+        request_verse = create_request_verse(
+            db=db, book=book, chapter=chapter, verse=verse
+        )
         arguments = flatten_args(
             db,
             book=book,
@@ -308,7 +311,7 @@ async def mutli_verse_same_chapter(
 ):
     kwargs = dict()
     request_verse = create_request_verse(
-        book=book, chapter=chapter, verse_start=verse_start, verse_end=verse_end
+        db=db, book=book, chapter=chapter, verse_start=verse_start, verse_end=verse_end
     )
     arguments = flatten_args(
         db=db,
